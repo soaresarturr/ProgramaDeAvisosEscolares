@@ -1,29 +1,35 @@
-# Welcome to your Lovable project
+# Portal Escolar
 
-This project was built with [Lovable](https://lovable.dev).
+Ferramenta de apoio para os professores e a secretaria de uma escola específica, focada em simplificar o envio de comunicados para os responsáveis dos alunos.
 
-## Build with Lovable
+## Sobre o projeto
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+O Portal Escolar nasceu como projeto de faculdade e está sendo integrado numa escola de educação básica real. Diferente de um sistema escolar genérico e multi-escola, ele foi pensado para atender a rotina de **uma escola específica**, com foco total em facilidade de uso.
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+O objetivo principal é permitir que a escola envie comunicados de forma segmentada para os responsáveis — para todos de uma vez, para turmas específicas ou para alunos específicos — evitando o trabalho manual e a comunicação fragmentada que normalmente acontece por grupos de WhatsApp, circulares em papel ou recados soltos.
 
-## Development
+## Funcionalidades já implementadas
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+- **Login** — tela de entrada simples, direta, sem distrações.
+- **Dashboard** — resumo com os números essenciais do dia a dia (alunos, comunicados enviados, comunicados não lidos) e a lista dos últimos comunicados enviados.
+- **Menu de navegação**, com três áreas:
+  - **Comunicados** — lista de todos os comunicados enviados, com filtro.
+  - **Cadastros** — Alunos, Responsáveis e Turmas.
+  - **Ano Letivo** — fluxo simplificado para aprovar/reprovar alunos.
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+O projeto está em desenvolvimento incremental, construído tela por tela.
 
-## Built with
+## Princípio de design
+
+Simplicidade acima de tudo. As usuárias principais do sistema são professoras e a secretaria da escola, sem perfil técnico — por isso cada tela mostra só o essencial, com poucos campos, uma ação principal bem clara por vez, e nada de painéis, gráficos ou opções que não sejam usadas no dia a dia.
+
+## Tecnologias
 
 - TanStack Start
 - TypeScript
 - React
 - Tailwind CSS
+
+## Status
+
+🚧 Em desenvolvimento. As telas estão sendo construídas e validadas uma de cada vez, seguindo o roadmap do projeto.

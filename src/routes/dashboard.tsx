@@ -105,7 +105,7 @@ function DashboardPage() {
             ))}
           </div>
         </section>
-      </main>
-    </div>
+      </div>
+    </AdminShell>
   );
 }
