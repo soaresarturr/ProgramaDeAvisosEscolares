@@ -86,5 +86,19 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5"
-  }
+  },
+  "version": "1.0.0",
+  "description": "Ferramenta de apoio para os professores e a secretaria de uma escola específica, focada em simplificar o envio de comunicados para os responsáveis dos alunos.",
+  "main": "eslint.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/soaresarturr/ProgramaDeAvisosEscolares.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/soaresarturr/ProgramaDeAvisosEscolares/issues"
+  },
+  "homepage": "https://github.com/soaresarturr/ProgramaDeAvisosEscolares#readme"
 }
