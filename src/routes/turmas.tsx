@@ -15,66 +15,46 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
-/* ── Séries da escola ─────────────────────────────────────────── */
-
-export interface Serie {
-  value: string;
-  label: string;
-  order: number;
-}
-
-export const SERIES: Serie[] = [
-  { value: "J1", label: "Jardim 1", order: 0 },
-  { value: "J2", label: "Jardim 2", order: 1 },
-  { value: "1", label: "1º Ano", order: 2 },
-  { value: "2", label: "2º Ano", order: 3 },
-];
-
-export function getSerieLabel(value: string): string {
-  return SERIES.find((s) => s.value === value)?.label ?? value;
-}
-
-export function getSerieOrder(value: string): number {
-  return SERIES.find((s) => s.value === value)?.order ?? 99;
-}
 
 /* ── Turma model ──────────────────────────────────────────────── */
 
 export interface Turma {
   id: string;
-  /** Serie code: "J1", "J2", "1", "2" */
-  serie: string;
-  /** Suffix that identifies the class within the serie, e.g. "A", "B" */
+  /** Free-text grade identifier typed by the user, e.g. "J1", "J2", "1", "2" */
+  ano: string;
+  /** Suffix that identifies the class within the grade, e.g. "A", "B" */
   sufixo: string;
+  /** Calendar year, e.g. 2026 */
+  anoLetivo: number;
   /** Number of enrolled students (mock) */
   totalAlunos: number;
 }
 
-/** Display name, e.g. "J1A" or "2B" */
-export function buildTurmaCode(serie: string, sufixo: string): string {
-  return `${serie}${sufixo}`;
+/** Short code, e.g. "J1A" */
+export function buildTurmaCode(ano: string, sufixo: string): string {
+  return `${ano}${sufixo}`;
 }
 
-/** Full display label, e.g. "Jardim 1 — Turma A" */
-export function buildTurmaLabel(serie: string, sufixo: string): string {
-  return `${getSerieLabel(serie)} — Turma ${sufixo}`;
+/** Full label, e.g. "Turma J1A · 2026" */
+export function buildTurmaLabel(t: Turma): string {
+  return `Turma ${t.ano}${t.sufixo}`;
 }
+
+export function buildTurmaLabelFull(t: Turma): string {
+  return `Turma ${t.ano}${t.sufixo} · ${t.anoLetivo}`;
+}
+
+/* ── Initial mock data ────────────────────────────────────────── */
+
+const CURRENT_YEAR = new Date().getFullYear();
 
 const INITIAL_TURMAS: Turma[] = [
-  { id: "1", serie: "J1", sufixo: "A", totalAlunos: 18 },
-  { id: "2", serie: "J1", sufixo: "B", totalAlunos: 16 },
-  { id: "3", serie: "J2", sufixo: "A", totalAlunos: 20 },
-  { id: "4", serie: "1", sufixo: "A", totalAlunos: 22 },
-  { id: "5", serie: "1", sufixo: "B", totalAlunos: 21 },
-  { id: "6", serie: "2", sufixo: "A", totalAlunos: 19 },
+  { id: "1", ano: "J", sufixo: "1A", anoLetivo: CURRENT_YEAR, totalAlunos: 18 },
+  { id: "2", ano: "J", sufixo: "1B", anoLetivo: CURRENT_YEAR, totalAlunos: 16 },
+  { id: "3", ano: "J", sufixo: "2A", anoLetivo: CURRENT_YEAR, totalAlunos: 20 },
+  { id: "4", ano: "1", sufixo: "A", anoLetivo: CURRENT_YEAR, totalAlunos: 22 },
+  { id: "5", ano: "1", sufixo: "B", anoLetivo: CURRENT_YEAR, totalAlunos: 21 },
+  { id: "6", ano: "2", sufixo: "A", anoLetivo: CURRENT_YEAR, totalAlunos: 19 },
 ];
 
 /* ── Route ────────────────────────────────────────────────────── */
@@ -102,63 +82,85 @@ function TurmasPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<Turma | null>(null);
 
   // Form state
-  const [formSerie, setFormSerie] = useState<string>("");
+  const [formAno, setFormAno] = useState("");
   const [formSufixo, setFormSufixo] = useState("");
+  const [formAnoLetivo, setFormAnoLetivo] = useState(String(CURRENT_YEAR));
   const [formError, setFormError] = useState("");
+
+  function resetForm() {
+    setFormAno("");
+    setFormSufixo("");
+    setFormAnoLetivo(String(CURRENT_YEAR));
+    setFormError("");
+  }
 
   function openCreate() {
     setEditingTurma(null);
-    setFormSerie("");
-    setFormSufixo("");
-    setFormError("");
+    resetForm();
     setDialogOpen(true);
   }
 
   function openEdit(turma: Turma) {
     setEditingTurma(turma);
-    setFormSerie(turma.serie);
+    setFormAno(turma.ano);
     setFormSufixo(turma.sufixo);
+    setFormAnoLetivo(String(turma.anoLetivo));
     setFormError("");
     setDialogOpen(true);
   }
 
-  function validate(serie: string, sufixo: string, excludeId?: string): string | null {
-    if (!serie) return "Selecione a série.";
-    if (!sufixo.trim()) return "Informe o sufixo da turma (ex: A, B).";
+  function validate(ano: string, sufixo: string, anoLetivo: string, excludeId?: string): string | null {
+    if (!ano.trim()) return "Informe o ano da turma (ex: J, 1, 2).";
+    if (ano.trim().length !== 1 || !/^[A-Z0-9]$/i.test(ano.trim())) return "O ano deve ter exatamente 1 letra ou número.";
+    if (!sufixo.trim()) return "Informe o sufixo da turma (ex: A, B, 1A).";
+    if (!anoLetivo.trim()) return "Informe o ano letivo.";
 
-    const code = buildTurmaCode(serie, sufixo.trim().toUpperCase());
+    const anoLetivoNum = Number(anoLetivo);
+    if (isNaN(anoLetivoNum) || anoLetivoNum < 2000 || anoLetivoNum > 2100) {
+      return "Ano letivo inválido.";
+    }
+
+    // Check duplicates (same ano + sufixo + anoLetivo)
+    const code = buildTurmaCode(ano.trim().toUpperCase(), sufixo.trim().toUpperCase());
     const duplicate = turmas.find(
-      (t) => buildTurmaCode(t.serie, t.sufixo) === code && t.id !== excludeId,
+      (t) =>
+        buildTurmaCode(t.ano, t.sufixo) === code &&
+        t.anoLetivo === anoLetivoNum &&
+        t.id !== excludeId,
     );
-    if (duplicate) return `A turma "${code}" já existe.`;
+    if (duplicate) return `A turma "${code}" já existe em ${anoLetivoNum}.`;
 
     return null;
   }
 
   function handleSave() {
-    const error = validate(formSerie, formSufixo, editingTurma?.id);
+    const error = validate(formAno, formSufixo, formAnoLetivo, editingTurma?.id);
     if (error) {
       setFormError(error);
       return;
     }
 
-    const serie = formSerie;
+    const ano = formAno.trim().toUpperCase();
     const sufixo = formSufixo.trim().toUpperCase();
+    const anoLetivo = Number(formAnoLetivo);
 
     if (editingTurma) {
       setTurmas((prev) =>
-        prev.map((t) => (t.id === editingTurma.id ? { ...t, serie, sufixo } : t)),
+        prev.map((t) =>
+          t.id === editingTurma.id ? { ...t, ano, sufixo, anoLetivo } : t,
+        ),
       );
-      toast.success(`Turma "${buildTurmaCode(serie, sufixo)}" atualizada.`);
+      toast.success(`Turma "${buildTurmaCode(ano, sufixo)}" atualizada.`);
     } else {
       const newTurma: Turma = {
         id: crypto.randomUUID(),
-        serie,
+        ano,
         sufixo,
+        anoLetivo,
         totalAlunos: 0,
       };
       setTurmas((prev) => [...prev, newTurma]);
-      toast.success(`Turma "${buildTurmaCode(serie, sufixo)}" criada.`);
+      toast.success(`Turma "${buildTurmaCode(ano, sufixo)}" criada para ${anoLetivo}.`);
     }
 
     setDialogOpen(false);
@@ -167,13 +169,16 @@ function TurmasPage() {
   function handleDelete(turma: Turma) {
     setTurmas((prev) => prev.filter((t) => t.id !== turma.id));
     setDeleteConfirm(null);
-    toast.success(`Turma "${buildTurmaCode(turma.serie, turma.sufixo)}" removida.`);
+    toast.success(`Turma "${buildTurmaCode(turma.ano, turma.sufixo)}" removida.`);
   }
 
-  // Sort turmas by serie order, then suffix
-  const sorted = turmas
-    .slice()
-    .sort((a, b) => getSerieOrder(a.serie) - getSerieOrder(b.serie) || a.sufixo.localeCompare(b.sufixo));
+  // Group by anoLetivo, then sort within
+  const anosLetivos = [...new Set(turmas.map((t) => t.anoLetivo))].sort((a, b) => b - a);
+
+  const turmasByAno = (anoLetivo: number) =>
+    turmas
+      .filter((t) => t.anoLetivo === anoLetivo)
+      .sort((a, b) => a.ano.localeCompare(b.ano) || a.sufixo.localeCompare(b.sufixo));
 
   return (
     <AdminShell>
@@ -196,7 +201,7 @@ function TurmasPage() {
           </Button>
         </div>
 
-        {sorted.length === 0 ? (
+        {turmas.length === 0 ? (
           <div className="mt-12 text-center">
             <p className="text-sm text-muted-foreground">Nenhuma turma cadastrada ainda.</p>
             <Button variant="outline" className="mt-4" onClick={openCreate}>
@@ -205,40 +210,47 @@ function TurmasPage() {
             </Button>
           </div>
         ) : (
-          <div className="mt-6 divide-y border-y">
-            {sorted.map((t) => (
-              <div key={t.id} className="flex items-center justify-between gap-4 py-4">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">
-                    {buildTurmaLabel(t.serie, t.sufixo)}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {t.totalAlunos} {t.totalAlunos === 1 ? "aluno" : "alunos"}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground hover:text-foreground"
-                    aria-label={`Editar turma ${buildTurmaCode(t.serie, t.sufixo)}`}
-                    onClick={() => openEdit(t)}
-                  >
-                    <Pencil className="size-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground hover:text-destructive"
-                    aria-label={`Remover turma ${buildTurmaCode(t.serie, t.sufixo)}`}
-                    onClick={() => setDeleteConfirm(t)}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
+          anosLetivos.map((anoLetivo) => (
+            <div key={anoLetivo} className="mt-6">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Ano letivo {anoLetivo}
+              </h2>
+              <div className="mt-2 divide-y border-y">
+                {turmasByAno(anoLetivo).map((t) => (
+                  <div key={t.id} className="flex items-center justify-between gap-4 py-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        Turma {buildTurmaCode(t.ano, t.sufixo)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {t.totalAlunos} {t.totalAlunos === 1 ? "aluno" : "alunos"}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:text-foreground"
+                        aria-label={`Editar turma ${buildTurmaCode(t.ano, t.sufixo)}`}
+                        onClick={() => openEdit(t)}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:text-destructive"
+                        aria-label={`Remover turma ${buildTurmaCode(t.ano, t.sufixo)}`}
+                        onClick={() => setDeleteConfirm(t)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))
         )}
       </div>
 
@@ -248,54 +260,69 @@ function TurmasPage() {
           <DialogHeader>
             <DialogTitle>{editingTurma ? "Editar turma" : "Nova turma"}</DialogTitle>
             <DialogDescription>
-              Escolha a série e o sufixo que identifica a turma (A, B, C…).
+              Preencha o ano, o sufixo e o ano letivo da turma.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="turma-serie">Série</Label>
-              <Select
-                value={formSerie}
-                onValueChange={(v) => {
-                  setFormSerie(v);
-                  setFormError("");
-                }}
-              >
-                <SelectTrigger id="turma-serie">
-                  <SelectValue placeholder="Selecione a série" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SERIES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="turma-ano">Ano da turma</Label>
+                <Input
+                  id="turma-ano"
+                  placeholder="Ex: J, 1, 2"
+                  value={formAno}
+                  maxLength={1}
+                  onChange={(e) => {
+                    setFormAno(e.target.value.toUpperCase());
+                    setFormError("");
+                  }}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="turma-sufixo">Sufixo</Label>
+                <Input
+                  id="turma-sufixo"
+                  placeholder="Ex: A, B, C"
+                  value={formSufixo}
+                  maxLength={10}
+                  onChange={(e) => {
+                    setFormSufixo(e.target.value.toUpperCase());
+                    setFormError("");
+                  }}
+                />
+              </div>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="turma-sufixo">Sufixo da turma</Label>
+              <Label htmlFor="turma-ano-letivo">Ano letivo</Label>
               <Input
-                id="turma-sufixo"
-                placeholder="Ex: A, B, C…"
-                value={formSufixo}
-                maxLength={10}
+                id="turma-ano-letivo"
+                type="number"
+                placeholder={String(CURRENT_YEAR)}
+                value={formAnoLetivo}
+                min={2000}
+                max={2100}
                 onChange={(e) => {
-                  setFormSufixo(e.target.value.toUpperCase());
+                  setFormAnoLetivo(e.target.value);
                   setFormError("");
                 }}
               />
-              {formSerie && formSufixo.trim() && (
-                <p className="text-xs text-muted-foreground">
-                  Resultado:{" "}
-                  <strong>
-                    {buildTurmaLabel(formSerie, formSufixo.trim().toUpperCase())}
-                  </strong>
-                </p>
-              )}
             </div>
+
+            {/* Live preview */}
+            {formAno.trim() && formSufixo.trim() && (
+              <p className="text-xs text-muted-foreground">
+                Resultado:{" "}
+                <strong className="text-foreground">
+                  Turma {buildTurmaCode(formAno.trim().toUpperCase(), formSufixo.trim().toUpperCase())}
+                </strong>
+                {formAnoLetivo && (
+                  <> · {formAnoLetivo}</>
+                )}
+              </p>
+            )}
 
             {formError && <p className="text-sm text-destructive">{formError}</p>}
           </div>
@@ -317,9 +344,9 @@ function TurmasPage() {
             <DialogDescription>
               Tem certeza que deseja remover a turma{" "}
               <strong>
-                {deleteConfirm && buildTurmaLabel(deleteConfirm.serie, deleteConfirm.sufixo)}
+                {deleteConfirm && buildTurmaCode(deleteConfirm.ano, deleteConfirm.sufixo)}
               </strong>
-              ? Essa ação não pode ser desfeita.
+              {deleteConfirm && ` (${deleteConfirm.anoLetivo})`}? Essa ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
