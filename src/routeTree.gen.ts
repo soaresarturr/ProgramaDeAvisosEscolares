@@ -14,6 +14,8 @@ import { Route as AlunosRouteImport } from './routes/alunos'
 import { Route as AnoLetivoRouteImport } from './routes/ano-letivo'
 import { Route as ComunicadosRouteImport } from './routes/comunicados'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResponsaveisRouteImport } from './routes/responsaveis'
 import { Route as TurmasRouteImport } from './routes/turmas'
 
@@ -42,6 +44,16 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResponsaveisRoute = ResponsaveisRouteImport.update({
   id: '/responsaveis',
   path: '/responsaveis',
@@ -59,6 +71,8 @@ export interface FileRoutesByFullPath {
   '/ano-letivo': typeof AnoLetivoRoute
   '/comunicados': typeof ComunicadosRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/responsaveis': typeof ResponsaveisRoute
   '/turmas': typeof TurmasRoute
 }
@@ -68,6 +82,8 @@ export interface FileRoutesByTo {
   '/ano-letivo': typeof AnoLetivoRoute
   '/comunicados': typeof ComunicadosRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/responsaveis': typeof ResponsaveisRoute
   '/turmas': typeof TurmasRoute
 }
@@ -78,6 +94,8 @@ export interface FileRoutesById {
   '/ano-letivo': typeof AnoLetivoRoute
   '/comunicados': typeof ComunicadosRoute
   '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/register': typeof RegisterRoute
   '/responsaveis': typeof ResponsaveisRoute
   '/turmas': typeof TurmasRoute
 }
@@ -89,6 +107,8 @@ export interface FileRouteTypes {
     | '/ano-letivo'
     | '/comunicados'
     | '/dashboard'
+    | '/login'
+    | '/register'
     | '/responsaveis'
     | '/turmas'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +118,8 @@ export interface FileRouteTypes {
     | '/ano-letivo'
     | '/comunicados'
     | '/dashboard'
+    | '/login'
+    | '/register'
     | '/responsaveis'
     | '/turmas'
   id:
@@ -107,6 +129,8 @@ export interface FileRouteTypes {
     | '/ano-letivo'
     | '/comunicados'
     | '/dashboard'
+    | '/login'
+    | '/register'
     | '/responsaveis'
     | '/turmas'
   fileRoutesById: FileRoutesById
@@ -117,6 +141,8 @@ export interface RootRouteChildren {
   AnoLetivoRoute: typeof AnoLetivoRoute
   ComunicadosRoute: typeof ComunicadosRoute
   DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
+  RegisterRoute: typeof RegisterRoute
   ResponsaveisRoute: typeof ResponsaveisRoute
   TurmasRoute: typeof TurmasRoute
 }
@@ -158,6 +184,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/responsaveis': {
       id: '/responsaveis'
       path: '/responsaveis'
@@ -181,6 +221,8 @@ const rootRouteChildren: RootRouteChildren = {
   AnoLetivoRoute: AnoLetivoRoute,
   ComunicadosRoute: ComunicadosRoute,
   DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
+  RegisterRoute: RegisterRoute,
   ResponsaveisRoute: ResponsaveisRoute,
   TurmasRoute: TurmasRoute,
 }

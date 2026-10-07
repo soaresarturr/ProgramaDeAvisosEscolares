@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/contexts/auth";
 import {
   CalendarCheck,
   ChevronDown,
@@ -19,8 +20,9 @@ const cadastros = [
   { label: "Turmas", to: "/turmas" },
 ] as const;
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const canManage = role === "ADMIN" || role === "DEV" || role === "PROFESSOR";
   const cadastrosActive = cadastros.some((item) => item.to === pathname);
   const [open, setOpen] = useState(cadastrosActive);
 
@@ -38,50 +40,61 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         Comunicados
       </Link>
 
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={itemClass(cadastrosActive && !open)}
-      >
-        <Users className="size-4 shrink-0" />
-        Cadastros
-        <ChevronDown
-          className={`ml-auto size-4 shrink-0 text-muted-foreground transition-transform ${
-            open ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {open && (
-        <div className="ml-7 flex flex-col gap-1 border-l pl-2">
-          {cadastros.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              className={`rounded-md px-3 py-2 text-sm transition-colors ${
-                pathname === item.to
-                  ? "bg-accent font-medium text-primary"
-                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+      {canManage && (
+        <>
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className={itemClass(cadastrosActive && !open)}
+          >
+            <Users className="size-4 shrink-0" />
+            Cadastros
+            <ChevronDown
+              className={`ml-auto size-4 shrink-0 text-muted-foreground transition-transform ${
+                open ? "rotate-180" : ""
               }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      )}
+            />
+          </button>
 
-      <Link to="/ano-letivo" onClick={onNavigate} className={itemClass(pathname === "/ano-letivo")}>
-        <CalendarCheck className="size-4 shrink-0" />
-        Ano Letivo
-      </Link>
+          {open && (
+            <div className="ml-7 flex flex-col gap-1 border-l pl-2">
+              {cadastros.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={onNavigate}
+                  className={`rounded-md px-3 py-2 text-sm transition-colors ${
+                    pathname === item.to
+                      ? "bg-accent font-medium text-primary"
+                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )}
+
+          <Link to="/ano-letivo" onClick={onNavigate} className={itemClass(pathname === "/ano-letivo")}>
+            <CalendarCheck className="size-4 shrink-0" />
+            Ano Letivo
+          </Link>
+        </>
+      )}
     </nav>
   );
 }
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate({ to: "/login" });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -97,7 +110,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <SheetContent side="left" className="w-64 p-5">
                 <SheetTitle className="font-display text-base">Menu</SheetTitle>
                 <div className="mt-5">
-                  <NavLinks onNavigate={() => setMobileOpen(false)} />
+                  <NavLinks onNavigate={() => setMobileOpen(false)} role={user?.role} />
                 </div>
               </SheetContent>
             </Sheet>
@@ -110,23 +123,23 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 <p className="truncate font-display text-sm font-semibold text-foreground sm:text-base">
                   Portal Escolar
                 </p>
-                <p className="text-xs text-muted-foreground">Administração</p>
+                <p className="text-xs text-muted-foreground">
+                  {user?.role === "RESPONSAVEL" ? "Área do Responsável" : "Administração"}
+                </p>
               </div>
             </Link>
           </div>
 
-          <Button asChild variant="ghost" size="sm" className="text-muted-foreground">
-            <Link to="/">
-              <LogOut className="size-4" />
-              Sair
-            </Link>
+          <Button variant="ghost" size="sm" className="text-muted-foreground gap-2" onClick={handleLogout}>
+            <LogOut className="size-4" />
+            Sair
           </Button>
         </div>
       </header>
 
       <div className="flex">
         <aside className="hidden w-60 shrink-0 border-r bg-card px-3 py-6 lg:block">
-          <NavLinks />
+          <NavLinks role={user?.role} />
         </aside>
         <main className="min-w-0 flex-1">{children}</main>
       </div>

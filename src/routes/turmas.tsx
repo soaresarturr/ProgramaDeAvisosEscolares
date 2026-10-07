@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, QrCode, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { AdminShell } from "@/components/admin-shell";
@@ -28,6 +28,8 @@ export interface Turma {
   anoLetivo: number;
   /** Number of enrolled students (mock) */
   totalAlunos: number;
+  /** Unique code for parents to join the class */
+  codigoAcesso: string;
 }
 
 /** Short code, e.g. "J1A" */
@@ -48,13 +50,13 @@ export function buildTurmaLabelFull(t: Turma): string {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-const INITIAL_TURMAS: Turma[] = [
-  { id: "1", ano: "J", sufixo: "1A", anoLetivo: CURRENT_YEAR, totalAlunos: 18 },
-  { id: "2", ano: "J", sufixo: "1B", anoLetivo: CURRENT_YEAR, totalAlunos: 16 },
-  { id: "3", ano: "J", sufixo: "2A", anoLetivo: CURRENT_YEAR, totalAlunos: 20 },
-  { id: "4", ano: "1", sufixo: "A", anoLetivo: CURRENT_YEAR, totalAlunos: 22 },
-  { id: "5", ano: "1", sufixo: "B", anoLetivo: CURRENT_YEAR, totalAlunos: 21 },
-  { id: "6", ano: "2", sufixo: "A", anoLetivo: CURRENT_YEAR, totalAlunos: 19 },
+export const INITIAL_TURMAS: Turma[] = [
+  { id: "1", ano: "J", sufixo: "1A", anoLetivo: CURRENT_YEAR, totalAlunos: 18, codigoAcesso: "ab12cd34" },
+  { id: "2", ano: "J", sufixo: "1B", anoLetivo: CURRENT_YEAR, totalAlunos: 16, codigoAcesso: "ef56gh78" },
+  { id: "3", ano: "J", sufixo: "2A", anoLetivo: CURRENT_YEAR, totalAlunos: 20, codigoAcesso: "ij90kl12" },
+  { id: "4", ano: "1", sufixo: "A", anoLetivo: CURRENT_YEAR, totalAlunos: 22, codigoAcesso: "mn34op56" },
+  { id: "5", ano: "1", sufixo: "B", anoLetivo: CURRENT_YEAR, totalAlunos: 21, codigoAcesso: "qr78st90" },
+  { id: "6", ano: "2", sufixo: "A", anoLetivo: CURRENT_YEAR, totalAlunos: 19, codigoAcesso: "uv12wx34" },
 ];
 
 /* ── Route ────────────────────────────────────────────────────── */
@@ -80,6 +82,7 @@ function TurmasPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTurma, setEditingTurma] = useState<Turma | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Turma | null>(null);
+  const [shareTurma, setShareTurma] = useState<Turma | null>(null);
 
   // Form state
   const [formAno, setFormAno] = useState("");
@@ -158,6 +161,7 @@ function TurmasPage() {
         sufixo,
         anoLetivo,
         totalAlunos: 0,
+        codigoAcesso: crypto.randomUUID().slice(0, 8),
       };
       setTurmas((prev) => [...prev, newTurma]);
       toast.success(`Turma "${buildTurmaCode(ano, sufixo)}" criada para ${anoLetivo}.`);
@@ -227,6 +231,15 @@ function TurmasPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-muted-foreground hover:text-primary"
+                        aria-label={`Compartilhar turma ${buildTurmaCode(t.ano, t.sufixo)}`}
+                        onClick={() => setShareTurma(t)}
+                      >
+                        <QrCode className="size-3.5" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -358,6 +371,52 @@ function TurmasPage() {
               onClick={() => deleteConfirm && handleDelete(deleteConfirm)}
             >
               Remover
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Share / QR Code Dialog */}
+      <Dialog open={!!shareTurma} onOpenChange={() => setShareTurma(null)}>
+        <DialogContent className="sm:max-w-sm text-center">
+          <DialogHeader>
+            <DialogTitle className="text-center">Código da Turma</DialogTitle>
+            <DialogDescription className="text-center">
+              Compartilhe este código ou QR Code para que os responsáveis possam entrar diretamente na{" "}
+              <strong>{shareTurma && buildTurmaCode(shareTurma.ano, shareTurma.sufixo)}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          {shareTurma && (
+            <div className="flex flex-col items-center justify-center gap-6 py-4">
+              <div className="rounded-xl border bg-white p-4 shadow-sm">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${shareTurma.codigoAcesso}`}
+                  alt={`QR Code para ${shareTurma.codigoAcesso}`}
+                  className="size-48"
+                />
+              </div>
+              <div className="flex w-full flex-col gap-2">
+                <Label className="text-muted-foreground">Código de Acesso</Label>
+                <div className="flex w-full items-center gap-2">
+                  <Input readOnly value={shareTurma.codigoAcesso} className="font-mono text-center text-lg tracking-widest" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      navigator.clipboard.writeText(shareTurma.codigoAcesso);
+                      toast.success("Código copiado!");
+                    }}
+                  >
+                    <Copy className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="sm:justify-center">
+            <Button variant="outline" onClick={() => setShareTurma(null)} className="w-full">
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
