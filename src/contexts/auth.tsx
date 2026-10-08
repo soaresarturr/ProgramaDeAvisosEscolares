@@ -37,8 +37,8 @@ const DEV_USER: User = { id: "dev-1", name: "Desenvolvedor", username: "dev", ro
 // Mocked storage for new users
 export const MOCK_DB = {
   users: [
-    { ...ADMIN_USER, senha: "AcessoDeAdministradorEscola" },
-    { ...DEV_USER, senha: "IssoSimEUmaSenhaForte" },
+    { ...ADMIN_USER, senha: import.meta.env.VITE_ADMIN_PASSWORD as string },
+    { ...DEV_USER, senha: import.meta.env.VITE_DEV_PASSWORD as string },
   ],
   alunos: [] as Aluno[],
 };
