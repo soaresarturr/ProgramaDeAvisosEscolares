@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Send, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
+import { requireAuth } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import { MOCK_DB, User } from "@/contexts/auth";
@@ -10,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 
 export const Route = createFileRoute("/responsaveis")({
+  beforeLoad: requireAuth,
   head: () => ({
     meta: [
       { title: "Responsáveis | Portal Escolar" },

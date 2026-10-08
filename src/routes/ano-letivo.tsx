@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronRight, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { requireAuth } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,6 +84,7 @@ const ALUNOS: Aluno[] = [
 /* ── Route ────────────────────────────────────────────────────── */
 
 export const Route = createFileRoute("/ano-letivo")({
+  beforeLoad: requireAuth,
   head: () => ({
     meta: [
       { title: "Ano Letivo | Portal Escolar" },

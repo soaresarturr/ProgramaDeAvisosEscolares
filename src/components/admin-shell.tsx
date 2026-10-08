@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useAuth } from "@/contexts/auth";
+import { MOCK_DB, useAuth } from "@/contexts/auth";
 import {
+  Bell,
   CalendarCheck,
+  ClipboardCheck,
   ChevronDown,
   GraduationCap,
   LogOut,
@@ -12,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const cadastros = [
@@ -25,6 +28,7 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string
   const canManage = role === "ADMIN" || role === "DEV" || role === "PROFESSOR";
   const cadastrosActive = cadastros.some((item) => item.to === pathname);
   const [open, setOpen] = useState(cadastrosActive);
+  const pendentes = MOCK_DB.users.filter((u) => u.requestedProfessor).length;
 
   const itemClass = (active: boolean) =>
     `flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${
@@ -80,9 +84,69 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string
             <CalendarCheck className="size-4 shrink-0" />
             Ano Letivo
           </Link>
+
+          {(role === "ADMIN" || role === "DEV") && (
+            <Link to="/solicitacoes" onClick={onNavigate} className={itemClass(pathname === "/solicitacoes")}>
+              <ClipboardCheck className="size-4 shrink-0" />
+              Solicitações
+              {pendentes > 0 && (
+                <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                  {pendentes}
+                </span>
+              )}
+            </Link>
+          )}
         </>
       )}
     </nav>
+  );
+}
+
+function NotificationsBell() {
+  const { notificacoes, marcarNotificacoesLidas } = useAuth();
+  const naoLidas = notificacoes.filter((n) => !n.lida).length;
+  const [permissao, setPermissao] = useState<string>(
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+  );
+
+  const ativarAvisos = async () => setPermissao(await Notification.requestPermission());
+
+  return (
+    <Popover onOpenChange={(aberto) => !aberto && marcarNotificacoesLidas()}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative" aria-label="Notificações">
+          <Bell className="size-5" />
+          {naoLidas > 0 && (
+            <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+              {naoLidas}
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-0">
+        <div className="max-h-72 divide-y overflow-y-auto">
+          {notificacoes.length === 0 && (
+            <p className="p-4 text-center text-sm text-muted-foreground">Nada de novo por aqui.</p>
+          )}
+          {notificacoes.map((n) => (
+            <Link key={n.id} to="/comunicados" className="block px-4 py-3 text-sm hover:bg-accent/60">
+              <span className={n.lida ? "text-muted-foreground" : "font-medium text-foreground"}>
+                {n.titulo}
+              </span>
+            </Link>
+          ))}
+        </div>
+        {permissao === "default" && (
+          <button
+            type="button"
+            onClick={ativarAvisos}
+            className="w-full border-t px-4 py-3 text-left text-xs text-primary hover:bg-accent/60"
+          >
+            Receber avisos também no navegador
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -91,8 +155,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate({ to: "/login" });
   };
 
@@ -130,10 +194,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
 
-          <Button variant="ghost" size="sm" className="text-muted-foreground gap-2" onClick={handleLogout}>
-            <LogOut className="size-4" />
-            Sair
-          </Button>
+          <div className="flex items-center gap-1">
+            {user?.role === "RESPONSAVEL" && <NotificationsBell />}
+            <Button variant="ghost" size="sm" className="text-muted-foreground gap-2" onClick={handleLogout}>
+              <LogOut className="size-4" />
+              Sair
+            </Button>
+          </div>
         </div>
       </header>
 

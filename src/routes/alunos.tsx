@@ -3,6 +3,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 
+import { formatCpf } from "@/lib/utils";
+import { requireAuth } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import { MOCK_DB, Aluno } from "@/contexts/auth";
@@ -19,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/alunos")({
+  beforeLoad: requireAuth,
   head: () => ({
     meta: [
       { title: "Alunos | Portal Escolar" },
@@ -162,10 +165,10 @@ function AlunosPage() {
               <Label htmlFor="cpf">CPF</Label>
               <Input
                 id="cpf"
-                placeholder="Apenas números"
+                placeholder="000.000.000-00"
                 maxLength={14}
                 value={cpf}
-                onChange={(e) => setCpf(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => setCpf(formatCpf(e.target.value))}
               />
             </div>
 

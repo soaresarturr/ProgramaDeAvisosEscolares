@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Pencil, Plus, Trash2, QrCode, Copy } from "lucide-react";
 import { toast } from "sonner";
 
+import { requireAuth } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,6 +63,7 @@ export const INITIAL_TURMAS: Turma[] = [
 /* ── Route ────────────────────────────────────────────────────── */
 
 export const Route = createFileRoute("/turmas")({
+  beforeLoad: requireAuth,
   head: () => ({
     meta: [
       { title: "Turmas | Portal Escolar" },

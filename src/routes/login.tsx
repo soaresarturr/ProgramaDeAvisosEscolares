@@ -15,9 +15,9 @@ function LoginPage() {
   const [username, setUsername] = useState("");
   const [senha, setSenha] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = login(username, senha);
+    const success = await login(username.trim(), senha.trim());
     if (success) {
       navigate({ to: "/" });
     }
@@ -38,6 +38,9 @@ function LoginPage() {
             <Input
               id="username"
               type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="Seu usuário de acesso"
               required
               value={username}
@@ -49,6 +52,8 @@ function LoginPage() {
             <Input
               id="senha"
               type="password"
+              autoCapitalize="none"
+              autoCorrect="off"
               required
               value={senha}
               onChange={(e) => setSenha(e.target.value)}

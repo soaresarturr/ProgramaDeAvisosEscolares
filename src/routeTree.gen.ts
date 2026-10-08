@@ -17,6 +17,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as ResponsaveisRouteImport } from './routes/responsaveis'
+import { Route as SolicitacoesRouteImport } from './routes/solicitacoes'
 import { Route as TurmasRouteImport } from './routes/turmas'
 
 const IndexRoute = IndexRouteImport.update({
@@ -59,6 +60,11 @@ const ResponsaveisRoute = ResponsaveisRouteImport.update({
   path: '/responsaveis',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SolicitacoesRoute = SolicitacoesRouteImport.update({
+  id: '/solicitacoes',
+  path: '/solicitacoes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TurmasRoute = TurmasRouteImport.update({
   id: '/turmas',
   path: '/turmas',
@@ -74,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/responsaveis': typeof ResponsaveisRoute
+  '/solicitacoes': typeof SolicitacoesRoute
   '/turmas': typeof TurmasRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/responsaveis': typeof ResponsaveisRoute
+  '/solicitacoes': typeof SolicitacoesRoute
   '/turmas': typeof TurmasRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/responsaveis': typeof ResponsaveisRoute
+  '/solicitacoes': typeof SolicitacoesRoute
   '/turmas': typeof TurmasRoute
 }
 export interface FileRouteTypes {
@@ -110,6 +119,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/responsaveis'
+    | '/solicitacoes'
     | '/turmas'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/responsaveis'
+    | '/solicitacoes'
     | '/turmas'
   id:
     | '__root__'
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/responsaveis'
+    | '/solicitacoes'
     | '/turmas'
   fileRoutesById: FileRoutesById
 }
@@ -144,6 +156,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   ResponsaveisRoute: typeof ResponsaveisRoute
+  SolicitacoesRoute: typeof SolicitacoesRoute
   TurmasRoute: typeof TurmasRoute
 }
 
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResponsaveisRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/solicitacoes': {
+      id: '/solicitacoes'
+      path: '/solicitacoes'
+      fullPath: '/solicitacoes'
+      preLoaderRoute: typeof SolicitacoesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/turmas': {
       id: '/turmas'
       path: '/turmas'
@@ -224,6 +244,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   ResponsaveisRoute: ResponsaveisRoute,
+  SolicitacoesRoute: SolicitacoesRoute,
   TurmasRoute: TurmasRoute,
 }
 export const routeTree = rootRouteImport

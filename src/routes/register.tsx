@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { formatCpf } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,9 +28,9 @@ function RegisterPage() {
   
   const [successData, setSuccessData] = useState<{username: string, senha: string} | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = registerResponsavel(nome, dataNascimento, cpf);
+    const result = await registerResponsavel(nome, dataNascimento, cpf);
     if (result.success && result.username && result.senha) {
       setSuccessData({ username: result.username, senha: result.senha });
     }
@@ -63,11 +64,11 @@ function RegisterPage() {
             <Label htmlFor="cpf">CPF</Label>
             <Input
               id="cpf"
-              placeholder="Apenas números"
+              placeholder="000.000.000-00"
               required
               maxLength={14}
               value={cpf}
-              onChange={(e) => setCpf(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => setCpf(formatCpf(e.target.value))}
             />
           </div>
           <div className="space-y-2">

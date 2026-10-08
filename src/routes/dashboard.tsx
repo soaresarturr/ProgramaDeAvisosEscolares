@@ -1,7 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Megaphone, Send, Users, UserPlus, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+import { formatCpf } from "@/lib/utils";
+import { requireAuth } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth";
@@ -24,6 +26,7 @@ const recentAnnouncements = [
 ];
 
 export const Route = createFileRoute("/dashboard")({
+  beforeLoad: requireAuth,
   head: () => ({
     meta: [
       { title: "Início | Portal Escolar" },
@@ -45,6 +48,7 @@ export const Route = createFileRoute("/dashboard")({
 
 function DashboardPage() {
   const { user, requestProfessorRole, createAluno } = useAuth();
+  const navigate = useNavigate();
   const [openAddFilho, setOpenAddFilho] = useState(false);
   
   const [nomeFilho, setNomeFilho] = useState("");
@@ -114,7 +118,7 @@ function DashboardPage() {
               <Button
                 size="lg"
                 className="h-11 w-full sm:w-auto"
-                onClick={() => toast.info("A tela de novo comunicado será criada na próxima etapa.")}
+                onClick={() => navigate({ to: "/comunicados" })}
               >
                 <Megaphone className="size-4 mr-2" />
                 Novo comunicado
@@ -193,10 +197,10 @@ function DashboardPage() {
               <Label htmlFor="cpfFilho">CPF do Aluno</Label>
               <Input
                 id="cpfFilho"
-                placeholder="Apenas números"
+                placeholder="000.000.000-00"
                 maxLength={14}
                 value={cpfFilho}
-                onChange={(e) => setCpfFilho(e.target.value.replace(/\D/g, ''))}
+                onChange={(e) => setCpfFilho(formatCpf(e.target.value))}
               />
             </div>
             <div className="grid gap-2">
