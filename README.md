@@ -4,7 +4,7 @@ Ferramenta de apoio para os professores e a secretaria de uma escola específica
 
 ## Sobre o projeto
 
-O Portal Escolar nasceu como projeto de faculdade e está sendo integrado numa escola de educação básica real. Diferente de um sistema escolar genérico e multi-escola, ele foi pensado para atender a rotina de **uma escola específica**, com foco total em facilidade de uso.
+O Portal Escolar nasceu como projeto de faculdade e está sendo integrado numa escola de educação básica real. Diferente de um sistema escolar genérico e multi-escola, ele foi pensado para atender uma demanda no envio de AVISOS para responsáveis de alunos tendo em vista que hoje tudo é feito no papel, com foco total em facilidade de uso.
 
 O objetivo principal é permitir que a escola envie comunicados de forma segmentada para os responsáveis — para todos de uma vez, para turmas específicas ou para alunos específicos — evitando o trabalho manual e a comunicação fragmentada que normalmente acontece por grupos de WhatsApp, circulares em papel ou recados soltos.
 
@@ -32,4 +32,4 @@ Simplicidade acima de tudo. As usuárias principais do sistema são professoras 
 
 ## Status
 
-🚧 Em desenvolvimento. As telas estão sendo construídas e validadas uma de cada vez, seguindo o roadmap do projeto.
+🚧 Em desenvolvimento
