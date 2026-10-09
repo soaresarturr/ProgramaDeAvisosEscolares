@@ -12,4 +12,11 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  nitro: {
+    // Gera o servidor em um arquivo só. Dividido em pedaços, o empacotador (rolldown) criava
+    // importações circulares entre eles e o site quebrava em produção
+    // ("__commonJSMin is not a function").
+    // (opção do nitro que o tipo do @lovable.dev/vite-tanstack-config não lista, mas repassa)
+    ...({ inlineDynamicImports: true } as object),
+  },
 });
