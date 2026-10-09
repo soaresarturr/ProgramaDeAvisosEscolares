@@ -38,3 +38,6 @@ dist-ssr
 
 # Arquivos compactados
 *.zip
+
+# Build da Vercel
+.vercel

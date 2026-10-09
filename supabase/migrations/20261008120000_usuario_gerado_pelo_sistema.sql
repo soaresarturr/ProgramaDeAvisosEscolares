@@ -18,7 +18,11 @@ begin
     values (
       new.id,
       v_name,
-      lower(split_part(v_name, ' ', 1)) || right(v_cpf, 3),
+      -- Mesma regra do formulário: primeiro nome sem acento, só letras e números.
+      coalesce(nullif(regexp_replace(
+        translate(lower(split_part(regexp_replace(v_name, '\s+', ' ', 'g'), ' ', 1)),
+                  'áàâãäéèêëíìîïóòôõöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn'),
+        '[^a-z0-9]', '', 'g'), ''), 'usuario') || right(v_cpf, 3),
       v_cpf,
       nullif(new.raw_user_meta_data ->> 'data_nascimento', '')::date
     );

@@ -61,6 +61,13 @@ export async function requireAuth() {
   return { user };
 }
 
+// Telas da equipe (professor, admin e dev); responsável volta para o início.
+export async function requireStaff() {
+  const { user } = await requireAuth();
+  if (user.role === "RESPONSAVEL") throw redirect({ to: "/dashboard" });
+  return { user };
+}
+
 // Telas só para administração (ADMIN/DEV); os demais perfis voltam para o início.
 export async function requireAdmin() {
   const { user } = await requireAuth();

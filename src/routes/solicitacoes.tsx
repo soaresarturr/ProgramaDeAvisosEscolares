@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, X } from "lucide-react";
+import { toast } from "sonner";
 
 import { requireAdmin } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
-import { MOCK_DB, useAuth } from "@/contexts/auth";
+import { dbErrorMessage, useDecidirSolicitacao, useSolicitacoes } from "@/lib/db";
 
 export const Route = createFileRoute("/solicitacoes")({
   beforeLoad: requireAdmin,
@@ -15,8 +16,18 @@ export const Route = createFileRoute("/solicitacoes")({
 });
 
 function SolicitacoesPage() {
-  const { aprovarProfessor, recusarProfessor } = useAuth();
-  const pedidos = MOCK_DB.users.filter((u) => u.requestedProfessor);
+  const { data: pedidos = [], isLoading } = useSolicitacoes();
+  const decidir = useDecidirSolicitacao();
+
+  const handle = (userId: string, name: string, aprovar: boolean) =>
+    decidir.mutate(
+      { userId, aprovar },
+      {
+        onSuccess: () =>
+          aprovar ? toast.success(`${name} agora é professor(a).`) : toast.info("Solicitação recusada."),
+        onError: (e) => toast.error(dbErrorMessage(e)),
+      },
+    );
 
   return (
     <AdminShell>
@@ -26,25 +37,32 @@ function SolicitacoesPage() {
           Pessoas que pediram acesso como professor(a).
         </p>
 
-        {pedidos.length === 0 ? (
+        {isLoading ? (
+          <p className="mt-12 text-center text-sm text-muted-foreground">Carregando...</p>
+        ) : pedidos.length === 0 ? (
           <p className="mt-12 text-center text-sm text-muted-foreground">
             Nenhuma solicitação no momento.
           </p>
         ) : (
           <div className="mt-6 divide-y border-y">
             {pedidos.map((p) => (
-              <div key={p.id} className="flex items-center justify-between gap-4 py-4">
+              <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{p.name}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">Usuário: {p.username}</p>
                 </div>
                 <div className="flex shrink-0 gap-2">
-                  <Button variant="outline" size="sm" onClick={() => recusarProfessor(p.id)}>
-                    <X className="mr-1 size-3.5" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={decidir.isPending}
+                    onClick={() => handle(p.id, p.name, false)}
+                  >
+                    <X className="size-3.5" />
                     Recusar
                   </Button>
-                  <Button size="sm" onClick={() => aprovarProfessor(p.id)}>
-                    <Check className="mr-1 size-3.5" />
+                  <Button size="sm" disabled={decidir.isPending} onClick={() => handle(p.id, p.name, true)}>
+                    <Check className="size-3.5" />
                     Aprovar
                   </Button>
                 </div>

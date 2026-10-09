@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Check, ChevronRight, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { requireAuth } from "@/lib/session";
+import { requireStaff } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,70 +21,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  type Turma,
+  buildTurmaLabelFull,
+  dbErrorMessage,
+  proximoAno,
+  useAlunos,
+  usePassarAno,
+  useTurmas,
+} from "@/lib/db";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
-type Status = "aprovado" | "reprovado" | null;
+type Status = "aprovado" | "reprovado";
 
-interface Turma {
-  id: string;
-  serie: string;
-  sufixo: string;
+interface Resultado {
+  status: Status;
+  destinoId: string;
 }
-
-interface Aluno {
-  id: string;
-  name: string;
-  turmaId: string;
-}
-
-/* ── Helpers (mirrored from turmas.tsx) ───────────────────────── */
-
-const SERIES = [
-  { value: "J1", label: "Jardim 1", order: 0 },
-  { value: "J2", label: "Jardim 2", order: 1 },
-  { value: "1", label: "1º Ano", order: 2 },
-  { value: "2", label: "2º Ano", order: 3 },
-];
-
-function getSerieLabel(value: string): string {
-  return SERIES.find((s) => s.value === value)?.label ?? value;
-}
-
-function getSerieOrder(value: string): number {
-  return SERIES.find((s) => s.value === value)?.order ?? 99;
-}
-
-function buildTurmaLabel(serie: string, sufixo: string): string {
-  return `${getSerieLabel(serie)} — Turma ${sufixo}`;
-}
-
-/* ── Mock data ────────────────────────────────────────────────── */
-
-const TURMAS: Turma[] = [
-  { id: "1", serie: "J1", sufixo: "A" },
-  { id: "2", serie: "J1", sufixo: "B" },
-  { id: "3", serie: "J2", sufixo: "A" },
-  { id: "4", serie: "1", sufixo: "A" },
-  { id: "5", serie: "1", sufixo: "B" },
-  { id: "6", serie: "2", sufixo: "A" },
-];
-
-const ALUNOS: Aluno[] = [
-  { id: "a1", name: "João da Silva", turmaId: "1" },
-  { id: "a2", name: "Maria Oliveira", turmaId: "1" },
-  { id: "a3", name: "Pedro Santos", turmaId: "2" },
-  { id: "a4", name: "Ana Costa", turmaId: "3" },
-  { id: "a5", name: "Lucas Souza", turmaId: "3" },
-  { id: "a6", name: "Fernanda Lima", turmaId: "4" },
-  { id: "a7", name: "Gabriel Ramos", turmaId: "5" },
-  { id: "a8", name: "Beatriz Almeida", turmaId: "6" },
-];
 
 /* ── Route ────────────────────────────────────────────────────── */
 
 export const Route = createFileRoute("/ano-letivo")({
-  beforeLoad: requireAuth,
+  beforeLoad: requireStaff,
   head: () => ({
     meta: [
       { title: "Ano Letivo | Portal Escolar" },
@@ -107,210 +66,195 @@ export const Route = createFileRoute("/ano-letivo")({
 /* ── Component ────────────────────────────────────────────────── */
 
 function AnoLetivoPage() {
+  const { data: turmas = [] } = useTurmas();
+  const { data: alunos = [] } = useAlunos();
+  const passarAno = usePassarAno();
+
   const [selectedTurmaId, setSelectedTurmaId] = useState<string>("");
-  const [statusMap, setStatusMap] = useState<Record<string, Status>>({});
-  const [destinoTurmaId, setDestinoTurmaId] = useState<string>("");
+  const [resultados, setResultados] = useState<Record<string, Resultado>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const selectedTurma = TURMAS.find((t) => t.id === selectedTurmaId) ?? null;
+  const selectedTurma = turmas.find((t) => t.id === selectedTurmaId) ?? null;
 
   const alunosDaTurma = useMemo(
-    () => (selectedTurmaId ? ALUNOS.filter((a) => a.turmaId === selectedTurmaId) : []),
-    [selectedTurmaId],
+    () => (selectedTurmaId ? alunos.filter((a) => a.turmaId === selectedTurmaId) : []),
+    [selectedTurmaId, alunos],
   );
 
-  const marcados = alunosDaTurma.filter((a) => statusMap[a.id] != null).length;
-  const aprovados = alunosDaTurma.filter((a) => statusMap[a.id] === "aprovado");
-  const reprovados = alunosDaTurma.filter((a) => statusMap[a.id] === "reprovado");
+  /**
+   * Turmas possíveis para o aluno:
+   *  - reprovado → mesmo ano (J, 1, 2...), qualquer sufixo
+   *  - aprovado  → ano seguinte (J → 1 → 2 ...), qualquer sufixo
+   * Só do ano letivo atual da turma em diante.
+   */
+  const opcoesDestino = (status: Status): Turma[] => {
+    if (!selectedTurma) return [];
+    const anoAlvo = status === "aprovado" ? proximoAno(selectedTurma.ano) : selectedTurma.ano;
+    return turmas
+      .filter((t) => t.ano === anoAlvo && t.anoLetivo >= selectedTurma.anoLetivo)
+      .sort((a, b) => b.anoLetivo - a.anoLetivo || a.sufixo.localeCompare(b.sufixo));
+  };
 
-  // Available destination turmas — all turmas EXCEPT the currently selected one
-  const turmasDestino = TURMAS
-    .filter((t) => t.id !== selectedTurmaId)
-    .sort((a, b) => getSerieOrder(a.serie) - getSerieOrder(b.serie) || a.sufixo.localeCompare(b.sufixo));
+  function marcar(alunoId: string, status: Status) {
+    const opcoes = opcoesDestino(status);
+    // Se só existe uma turma possível, já deixa escolhida
+    setResultados((r) => ({
+      ...r,
+      [alunoId]: { status, destinoId: opcoes.length === 1 ? opcoes[0]!.id : "" },
+    }));
+  }
 
-  const destinoTurma = TURMAS.find((t) => t.id === destinoTurmaId) ?? null;
+  function escolherDestino(alunoId: string, destinoId: string) {
+    setResultados((r) => {
+      const atual = r[alunoId];
+      return atual ? { ...r, [alunoId]: { ...atual, destinoId } } : r;
+    });
+  }
 
   function handleTurmaChange(turmaId: string) {
     setSelectedTurmaId(turmaId);
-    setStatusMap({});
-    setDestinoTurmaId("");
+    setResultados({});
   }
 
-  function handleSave() {
-    if (marcados < alunosDaTurma.length) return;
-    if (aprovados.length > 0 && !destinoTurmaId) {
-      toast.error("Selecione a turma destino para os alunos aprovados.");
-      return;
-    }
-    setConfirmOpen(true);
-  }
+  const prontos = alunosDaTurma.filter((a) => resultados[a.id]?.destinoId).length;
+  const aprovados = alunosDaTurma.filter((a) => resultados[a.id]?.status === "aprovado").length;
+  const reprovados = alunosDaTurma.filter((a) => resultados[a.id]?.status === "reprovado").length;
+  const tudoPronto = alunosDaTurma.length > 0 && prontos === alunosDaTurma.length;
+
+  const nomeTurma = (id: string) => {
+    const t = turmas.find((x) => x.id === id);
+    return t ? buildTurmaLabelFull(t) : "";
+  };
 
   function handleConfirm() {
-    if (!selectedTurma) return;
+    const movimentos = alunosDaTurma
+      .map((a) => ({ alunoId: a.id, turmaId: resultados[a.id]?.destinoId ?? "" }))
+      // Quem fica na mesma turma não precisa ser gravado
+      .filter((m) => m.turmaId && m.turmaId !== selectedTurmaId);
 
-    if (aprovados.length > 0 && destinoTurma) {
-      toast.success(
-        `${aprovados.length} aluno(s) aprovado(s) movidos para ${buildTurmaLabel(destinoTurma.serie, destinoTurma.sufixo)}.`,
-      );
+    const finish = () => {
+      setConfirmOpen(false);
+      setSelectedTurmaId("");
+      setResultados({});
+      toast.success("Resultado do ano salvo com sucesso!");
+    };
+
+    if (movimentos.length === 0) {
+      finish();
+      return;
     }
-
-    if (reprovados.length > 0) {
-      toast.info(
-        `${reprovados.length} aluno(s) reprovado(s) permanecem em ${buildTurmaLabel(selectedTurma.serie, selectedTurma.sufixo)}.`,
-      );
-    }
-
-    setConfirmOpen(false);
-    setSelectedTurmaId("");
-    setStatusMap({});
-    setDestinoTurmaId("");
-    toast.success("Resultado do ano salvo com sucesso!");
+    passarAno.mutate(movimentos, {
+      onSuccess: finish,
+      onError: (e) => toast.error(dbErrorMessage(e)),
+    });
   }
-
-  // Sort turmas for the origin selector
-  const sortedTurmas = [...TURMAS].sort(
-    (a, b) => getSerieOrder(a.serie) - getSerieOrder(b.serie) || a.sufixo.localeCompare(b.sufixo),
-  );
-
-  const allMarked = marcados === alunosDaTurma.length && alunosDaTurma.length > 0;
-  const hasAprovados = aprovados.length > 0;
 
   return (
     <AdminShell>
       <div className="mx-auto max-w-3xl px-5 py-8 sm:px-8 sm:py-10">
         <h1 className="font-display text-2xl font-semibold text-foreground">Ano Letivo</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Selecione a turma e marque cada aluno como aprovado ou reprovado.
+          Selecione a turma, marque cada aluno e escolha a turma do próximo ano.
         </p>
 
-        {/* ── Step 1: Turma selector ──────────────────── */}
-        <div className="mt-6">
-          <label
-            htmlFor="select-turma-origem"
-            className="mb-2 block text-sm font-medium text-foreground"
-          >
+        <div className="mt-6 max-w-xs">
+          <label htmlFor="select-turma" className="mb-2 block text-sm font-medium text-foreground">
             Turma
           </label>
           <Select value={selectedTurmaId} onValueChange={handleTurmaChange}>
-            <SelectTrigger id="select-turma-origem" className="w-full sm:w-80">
-              <SelectValue placeholder="Selecione uma turma" />
+            <SelectTrigger id="select-turma">
+              <SelectValue placeholder="Selecione a turma" />
             </SelectTrigger>
             <SelectContent>
-              {sortedTurmas.map((t) => (
+              {turmas.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
-                  {buildTurmaLabel(t.serie, t.sufixo)}
+                  {buildTurmaLabelFull(t)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {turmas.length === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">Nenhuma turma cadastrada ainda.</p>
+          )}
         </div>
 
-        {/* ── Empty state ─────────────────────────────── */}
-        {!selectedTurmaId && (
-          <div className="mt-12 flex flex-col items-center gap-2 text-center">
-            <div className="flex size-12 items-center justify-center rounded-full bg-accent">
-              <ChevronRight className="size-5 text-muted-foreground" />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Selecione uma turma acima para começar.
-            </p>
-          </div>
-        )}
-
         {selectedTurmaId && alunosDaTurma.length === 0 && (
-          <div className="mt-12 text-center">
-            <p className="text-sm text-muted-foreground">
-              Nenhum aluno encontrado nesta turma.
-            </p>
-          </div>
+          <p className="mt-8 text-sm text-muted-foreground">Esta turma não tem alunos.</p>
         )}
 
-        {/* ── Step 2: Student list ────────────────────── */}
         {selectedTurmaId && alunosDaTurma.length > 0 && (
           <>
             <div className="mt-4 divide-y border-y">
               {alunosDaTurma.map((aluno) => {
-                const current = statusMap[aluno.id] ?? null;
+                const r = resultados[aluno.id];
+                const opcoes = r ? opcoesDestino(r.status) : [];
                 return (
-                  <div
-                    key={aluno.id}
-                    className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {aluno.name}
-                      </p>
+                  <div key={aluno.id} className="flex flex-col gap-3 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="min-w-0 truncate text-sm font-medium text-foreground">{aluno.name}</p>
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          variant={r?.status === "aprovado" ? "default" : "outline"}
+                          size="sm"
+                          className="flex-1 sm:flex-none"
+                          aria-pressed={r?.status === "aprovado"}
+                          onClick={() => marcar(aluno.id, "aprovado")}
+                        >
+                          <Check className="size-4" />
+                          Aprovado
+                        </Button>
+                        <Button
+                          variant={r?.status === "reprovado" ? "destructive" : "outline"}
+                          size="sm"
+                          className="flex-1 sm:flex-none"
+                          aria-pressed={r?.status === "reprovado"}
+                          onClick={() => marcar(aluno.id, "reprovado")}
+                        >
+                          <X className="size-4" />
+                          Reprovado
+                        </Button>
+                      </div>
                     </div>
 
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        variant={current === "aprovado" ? "default" : "outline"}
-                        size="sm"
-                        className="flex-1 sm:flex-none"
-                        aria-pressed={current === "aprovado"}
-                        onClick={() =>
-                          setStatusMap((s) => ({ ...s, [aluno.id]: "aprovado" }))
-                        }
-                      >
-                        <Check className="size-4" />
-                        Aprovado
-                      </Button>
-                      <Button
-                        variant={current === "reprovado" ? "destructive" : "outline"}
-                        size="sm"
-                        className="flex-1 sm:flex-none"
-                        aria-pressed={current === "reprovado"}
-                        onClick={() =>
-                          setStatusMap((s) => ({ ...s, [aluno.id]: "reprovado" }))
-                        }
-                      >
-                        <X className="size-4" />
-                        Reprovado
-                      </Button>
-                    </div>
+                    {r && (
+                      <div className="sm:ml-auto sm:w-72">
+                        {opcoes.length === 0 ? (
+                          <p className="text-xs text-destructive">
+                            {r.status === "aprovado"
+                              ? "Não há turma do próximo ano cadastrada. Crie em Turmas."
+                              : "Não há turma deste ano cadastrada."}
+                          </p>
+                        ) : (
+                          <Select value={r.destinoId} onValueChange={(v) => escolherDestino(aluno.id, v)}>
+                            <SelectTrigger aria-label={`Turma de ${aluno.name} no próximo ano`}>
+                              <SelectValue placeholder="Vai para qual turma?" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {opcoes.map((t) => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {buildTurmaLabelFull(t)}
+                                  {t.id === selectedTurmaId ? " (atual)" : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {/* ── Step 3: Destination turma (only when all marked & has aprovados) ── */}
-            {allMarked && hasAprovados && (
-              <div className="mt-6 rounded-md border border-border bg-accent/30 p-4">
-                <label
-                  htmlFor="select-turma-destino"
-                  className="mb-1 block text-sm font-medium text-foreground"
-                >
-                  Turma destino para aprovados
-                </label>
-                <p className="mb-3 text-xs text-muted-foreground">
-                  Escolha para qual turma os {aprovados.length} aluno(s) aprovado(s) serão movidos.
-                </p>
-                <Select value={destinoTurmaId} onValueChange={setDestinoTurmaId}>
-                  <SelectTrigger id="select-turma-destino" className="w-full sm:w-80 bg-background">
-                    <SelectValue placeholder="Selecione a turma destino" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {turmasDestino.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {buildTurmaLabel(t.serie, t.sufixo)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {/* ── Footer ──────────────────────────────── */}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
-                {marcados} de {alunosDaTurma.length} alunos marcados
+                {prontos} de {alunosDaTurma.length} alunos prontos
               </p>
               <Button
                 id="btn-salvar-ano"
-                size="lg"
-                className="h-11 w-full sm:w-auto"
-                disabled={!allMarked || (hasAprovados && !destinoTurmaId)}
-                onClick={handleSave}
+                className="h-10 self-start px-4 sm:h-11 sm:self-auto sm:px-6"
+                disabled={!tudoPronto}
+                onClick={() => setConfirmOpen(true)}
               >
                 Salvar resultado do ano
               </Button>
@@ -319,7 +263,6 @@ function AnoLetivoPage() {
         )}
       </div>
 
-      {/* ── Confirmation Dialog ────────────────────────── */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -330,34 +273,24 @@ function AnoLetivoPage() {
           {selectedTurma && (
             <div className="space-y-3 py-2">
               <div className="rounded-md border bg-accent/30 p-3">
-                <p className="text-sm font-medium text-foreground">
-                  {buildTurmaLabel(selectedTurma.serie, selectedTurma.sufixo)}
-                </p>
+                <p className="text-sm font-medium text-foreground">{buildTurmaLabelFull(selectedTurma)}</p>
                 <div className="mt-2 flex gap-6 text-xs text-muted-foreground">
                   <span>
-                    <strong className="text-emerald-600">{aprovados.length}</strong> aprovado(s)
+                    <strong className="text-emerald-600">{aprovados}</strong> aprovado(s)
                   </span>
                   <span>
-                    <strong className="text-destructive">{reprovados.length}</strong> reprovado(s)
+                    <strong className="text-destructive">{reprovados}</strong> reprovado(s)
                   </span>
                 </div>
               </div>
-
-              {aprovados.length > 0 && destinoTurma && (
-                <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
-                  <p className="text-xs text-emerald-800 dark:text-emerald-300">
-                    <strong>{aprovados.length}</strong> aluno(s) serão movidos para{" "}
-                    <strong>{buildTurmaLabel(destinoTurma.serie, destinoTurma.sufixo)}</strong>
-                  </p>
-                </div>
-              )}
-
-              {reprovados.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {reprovados.length} aluno(s) reprovado(s) permanecem em{" "}
-                  <strong>{buildTurmaLabel(selectedTurma.serie, selectedTurma.sufixo)}</strong>.
-                </p>
-              )}
+              <ul className="max-h-60 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+                {alunosDaTurma.map((a) => (
+                  <li key={a.id}>
+                    <strong className="text-foreground">{a.name}</strong> →{" "}
+                    {nomeTurma(resultados[a.id]?.destinoId ?? "")}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -365,7 +298,9 @@ function AnoLetivoPage() {
             <Button variant="outline" onClick={() => setConfirmOpen(false)}>
               Voltar
             </Button>
-            <Button onClick={handleConfirm}>Confirmar</Button>
+            <Button onClick={handleConfirm} disabled={passarAno.isPending}>
+              {passarAno.isPending ? "Salvando..." : "Confirmar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

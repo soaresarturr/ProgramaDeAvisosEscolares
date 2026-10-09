@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Pencil, Plus, Trash2, QrCode, Copy } from "lucide-react";
 import { toast } from "sonner";
 
-import { requireAuth } from "@/lib/session";
+import { requireStaff } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,54 +16,22 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-/* ── Turma model ──────────────────────────────────────────────── */
-
-export interface Turma {
-  id: string;
-  /** Free-text grade identifier typed by the user, e.g. "J1", "J2", "1", "2" */
-  ano: string;
-  /** Suffix that identifies the class within the grade, e.g. "A", "B" */
-  sufixo: string;
-  /** Calendar year, e.g. 2026 */
-  anoLetivo: number;
-  /** Number of enrolled students (mock) */
-  totalAlunos: number;
-  /** Unique code for parents to join the class */
-  codigoAcesso: string;
-}
-
-/** Short code, e.g. "J1A" */
-export function buildTurmaCode(ano: string, sufixo: string): string {
-  return `${ano}${sufixo}`;
-}
-
-/** Full label, e.g. "Turma J1A · 2026" */
-export function buildTurmaLabel(t: Turma): string {
-  return `Turma ${t.ano}${t.sufixo}`;
-}
-
-export function buildTurmaLabelFull(t: Turma): string {
-  return `Turma ${t.ano}${t.sufixo} · ${t.anoLetivo}`;
-}
-
-/* ── Initial mock data ────────────────────────────────────────── */
+import {
+  type Turma,
+  buildTurmaCode,
+  dbErrorMessage,
+  useRemoverTurma,
+  useSalvarTurma,
+  useTurmas,
+} from "@/lib/db";
+import { useAuth } from "@/contexts/auth";
 
 const CURRENT_YEAR = new Date().getFullYear();
-
-export const INITIAL_TURMAS: Turma[] = [
-  { id: "1", ano: "J", sufixo: "1A", anoLetivo: CURRENT_YEAR, totalAlunos: 18, codigoAcesso: "ab12cd34" },
-  { id: "2", ano: "J", sufixo: "1B", anoLetivo: CURRENT_YEAR, totalAlunos: 16, codigoAcesso: "ef56gh78" },
-  { id: "3", ano: "J", sufixo: "2A", anoLetivo: CURRENT_YEAR, totalAlunos: 20, codigoAcesso: "ij90kl12" },
-  { id: "4", ano: "1", sufixo: "A", anoLetivo: CURRENT_YEAR, totalAlunos: 22, codigoAcesso: "mn34op56" },
-  { id: "5", ano: "1", sufixo: "B", anoLetivo: CURRENT_YEAR, totalAlunos: 21, codigoAcesso: "qr78st90" },
-  { id: "6", ano: "2", sufixo: "A", anoLetivo: CURRENT_YEAR, totalAlunos: 19, codigoAcesso: "uv12wx34" },
-];
 
 /* ── Route ────────────────────────────────────────────────────── */
 
 export const Route = createFileRoute("/turmas")({
-  beforeLoad: requireAuth,
+  beforeLoad: requireStaff,
   head: () => ({
     meta: [
       { title: "Turmas | Portal Escolar" },
@@ -80,7 +48,10 @@ export const Route = createFileRoute("/turmas")({
 /* ── Component ────────────────────────────────────────────────── */
 
 function TurmasPage() {
-  const [turmas, setTurmas] = useState<Turma[]>(INITIAL_TURMAS);
+  const { user } = useAuth();
+  const { data: turmas = [], isLoading } = useTurmas();
+  const salvarTurma = useSalvarTurma();
+  const removerTurma = useRemoverTurma();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTurma, setEditingTurma] = useState<Turma | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Turma | null>(null);
@@ -149,34 +120,36 @@ function TurmasPage() {
     const sufixo = formSufixo.trim().toUpperCase();
     const anoLetivo = Number(formAnoLetivo);
 
-    if (editingTurma) {
-      setTurmas((prev) =>
-        prev.map((t) =>
-          t.id === editingTurma.id ? { ...t, ano, sufixo, anoLetivo } : t,
-        ),
-      );
-      toast.success(`Turma "${buildTurmaCode(ano, sufixo)}" atualizada.`);
-    } else {
-      const newTurma: Turma = {
-        id: crypto.randomUUID(),
-        ano,
-        sufixo,
-        anoLetivo,
-        totalAlunos: 0,
-        codigoAcesso: crypto.randomUUID().slice(0, 8),
-      };
-      setTurmas((prev) => [...prev, newTurma]);
-      toast.success(`Turma "${buildTurmaCode(ano, sufixo)}" criada para ${anoLetivo}.`);
-    }
-
-    setDialogOpen(false);
+    salvarTurma.mutate(
+      { ano, sufixo, anoLetivo, ...(editingTurma ? { id: editingTurma.id } : {}) },
+      {
+        onSuccess: () => {
+          toast.success(
+            editingTurma
+              ? `Turma "${buildTurmaCode(ano, sufixo)}" atualizada.`
+              : `Turma "${buildTurmaCode(ano, sufixo)}" criada para ${anoLetivo}.`,
+          );
+          setDialogOpen(false);
+        },
+        onError: (e) => setFormError(dbErrorMessage(e)),
+      },
+    );
   }
 
   function handleDelete(turma: Turma) {
-    setTurmas((prev) => prev.filter((t) => t.id !== turma.id));
+    removerTurma.mutate(turma.id, {
+      onSuccess: () => toast.success(`Turma "${buildTurmaCode(turma.ano, turma.sufixo)}" removida.`),
+      onError: (e) =>
+        toast.error(
+          (e as { code?: string }).code === "23503"
+            ? "Essa turma ainda tem alunos. Mude os alunos de turma antes de remover."
+            : dbErrorMessage(e),
+        ),
+    });
     setDeleteConfirm(null);
-    toast.success(`Turma "${buildTurmaCode(turma.ano, turma.sufixo)}" removida.`);
   }
+
+  const canManage = user?.role === "ADMIN" || user?.role === "DEV" || user?.role === "PROFESSOR";
 
   // Group by anoLetivo, then sort within
   const anosLetivos = [...new Set(turmas.map((t) => t.anoLetivo))].sort((a, b) => b - a);
@@ -198,8 +171,7 @@ function TurmasPage() {
           </div>
           <Button
             id="btn-add-turma"
-            size="lg"
-            className="h-11 w-full sm:w-auto"
+            className="h-10 self-start px-4 sm:h-11 sm:self-auto sm:px-6"
             onClick={openCreate}
           >
             <Plus className="size-4" />
@@ -207,13 +179,17 @@ function TurmasPage() {
           </Button>
         </div>
 
-        {turmas.length === 0 ? (
+        {isLoading ? (
+          <p className="mt-12 text-center text-sm text-muted-foreground">Carregando...</p>
+        ) : turmas.length === 0 ? (
           <div className="mt-12 text-center">
             <p className="text-sm text-muted-foreground">Nenhuma turma cadastrada ainda.</p>
-            <Button variant="outline" className="mt-4" onClick={openCreate}>
-              <Plus className="size-4" />
-              Criar primeira turma
-            </Button>
+            {canManage && (
+              <Button variant="outline" className="mt-4" onClick={openCreate}>
+                <Plus className="size-4" />
+                Criar primeira turma
+              </Button>
+            )}
           </div>
         ) : (
           anosLetivos.map((anoLetivo) => (
@@ -346,7 +322,9 @@ function TurmasPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>{editingTurma ? "Salvar" : "Criar turma"}</Button>
+            <Button onClick={handleSave} disabled={salvarTurma.isPending}>
+              {salvarTurma.isPending ? "Salvando..." : editingTurma ? "Salvar" : "Criar turma"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

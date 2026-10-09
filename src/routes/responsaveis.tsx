@@ -2,16 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Send, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 
-import { requireAuth } from "@/lib/session";
+import { requireStaff } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
-import { MOCK_DB, User } from "@/contexts/auth";
+import { type Responsavel, useResponsaveis } from "@/lib/db";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 
 export const Route = createFileRoute("/responsaveis")({
-  beforeLoad: requireAuth,
+  beforeLoad: requireStaff,
   head: () => ({
     meta: [
       { title: "Responsáveis | Portal Escolar" },
@@ -26,7 +26,7 @@ export const Route = createFileRoute("/responsaveis")({
 });
 
 function ResponsaveisPage() {
-  const [messageTo, setMessageTo] = useState<User | null>(null);
+  const [messageTo, setMessageTo] = useState<Responsavel | null>(null);
   const [message, setMessage] = useState("");
 
   const handleSendMessage = () => {
@@ -39,7 +39,7 @@ function ResponsaveisPage() {
     setMessageTo(null);
   };
 
-  const parents = MOCK_DB.users.filter((u) => u.role === "RESPONSAVEL");
+  const { data: parents = [], isLoading } = useResponsaveis();
 
   return (
     <AdminShell>
@@ -53,7 +53,9 @@ function ResponsaveisPage() {
           </div>
         </div>
 
-        {parents.length === 0 ? (
+        {isLoading ? (
+          <p className="mt-12 text-center text-sm text-muted-foreground">Carregando...</p>
+        ) : parents.length === 0 ? (
           <div className="mt-12 text-center">
             <p className="text-sm text-muted-foreground">Nenhum responsável cadastrado ainda.</p>
           </div>
@@ -63,17 +65,20 @@ function ResponsaveisPage() {
               <div key={r.id} className="flex items-center justify-between gap-4 py-4">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-foreground">{r.name}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{r.email}</p>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    Usuário: {r.username}
+                    {r.filhos.length > 0 && <> · Filhos: {r.filhos.map((f) => f.name).join(", ")}</>}
+                  </p>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <Button
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() => setMessageTo(r as User)}
+                    onClick={() => setMessageTo(r)}
                   >
                     <MessageSquare className="size-3.5" />
-                    Enviar mensagem
+                    <span className="hidden sm:inline">Enviar mensagem</span>
                   </Button>
                 </div>
               </div>

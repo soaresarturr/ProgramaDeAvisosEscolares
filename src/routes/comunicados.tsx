@@ -23,8 +23,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MOCK_DB, useAuth } from "@/contexts/auth";
-import { INITIAL_TURMAS, buildTurmaLabelFull } from "./turmas";
+import { useAuth } from "@/contexts/auth";
+import { buildTurmaLabelFull, dbErrorMessage, useComunicados, useCriarComunicado, useTurmas } from "@/lib/db";
 
 export const Route = createFileRoute("/comunicados")({
   beforeLoad: requireAuth,
@@ -48,7 +48,10 @@ function formatDate(iso: string) {
 }
 
 function ComunicadosPage() {
-  const { user, criarComunicado } = useAuth();
+  const { user } = useAuth();
+  const { data: comunicados = [], isLoading } = useComunicados();
+  const { data: turmas = [] } = useTurmas();
+  const criarComunicado = useCriarComunicado();
   const canSend = user?.role === "ADMIN" || user?.role === "DEV" || user?.role === "PROFESSOR";
 
   const [filter, setFilter] = useState("todos");
@@ -57,13 +60,8 @@ function ComunicadosPage() {
   const [mensagem, setMensagem] = useState("");
   const [destino, setDestino] = useState(ESCOLA);
 
-  // Responsável só vê o que é da escola toda ou das turmas dos seus filhos
-  const minhasTurmas = new Set(
-    MOCK_DB.alunos.filter((a) => a.responsavelId === user?.id).map((a) => a.turmaId),
-  );
-  const visiveis = MOCK_DB.comunicados.filter(
-    (c) => canSend || c.turmaId === null || minhasTurmas.has(c.turmaId),
-  );
+  // O banco (RLS) já entrega ao responsável só a escola toda e as turmas dos filhos
+  const visiveis = comunicados;
   const list =
     filter === "todos"
       ? visiveis
@@ -76,17 +74,23 @@ function ComunicadosPage() {
       toast.error("Preencha o título e a mensagem.");
       return;
     }
-    const turma = INITIAL_TURMAS.find((t) => t.id === destino);
-    criarComunicado(
-      titulo,
-      mensagem,
-      turma ? turma.id : null,
-      turma ? buildTurmaLabelFull(turma) : "Toda a escola",
+    criarComunicado.mutate(
+      { titulo, mensagem, turmaId: destino === ESCOLA ? null : destino },
+      {
+        onSuccess: (avisados) => {
+          toast.success(
+            avisados === 0
+              ? "Comunicado salvo. Ainda não há responsáveis para avisar."
+              : `Comunicado enviado! ${avisados} ${avisados === 1 ? "responsável avisado" : "responsáveis avisados"}.`,
+          );
+          setTitulo("");
+          setMensagem("");
+          setDestino(ESCOLA);
+          setOpen(false);
+        },
+        onError: (e) => toast.error(dbErrorMessage(e, "Não foi possível enviar. Tente novamente.")),
+      },
     );
-    setTitulo("");
-    setMensagem("");
-    setDestino(ESCOLA);
-    setOpen(false);
   };
 
   return (
@@ -95,13 +99,14 @@ function ComunicadosPage() {
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="font-display text-2xl font-semibold text-foreground">Comunicados</h1>
           {canSend && (
-            <Button size="lg" className="h-11 w-full sm:w-auto" onClick={() => setOpen(true)}>
+            <Button className="h-10 self-start px-4 sm:h-11 sm:self-auto sm:px-6" onClick={() => setOpen(true)}>
               <Megaphone className="size-4" />
               Novo comunicado
             </Button>
           )}
         </div>
 
+        {canSend && (
         <div className="mt-6 max-w-xs">
           <Select value={filter} onValueChange={setFilter}>
             <SelectTrigger aria-label="Filtrar por turma">
@@ -110,7 +115,7 @@ function ComunicadosPage() {
             <SelectContent>
               <SelectItem value="todos">Todos os comunicados</SelectItem>
               <SelectItem value={ESCOLA}>Toda a escola</SelectItem>
-              {INITIAL_TURMAS.map((t) => (
+              {turmas.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
                   {buildTurmaLabelFull(t)}
                 </SelectItem>
@@ -118,6 +123,7 @@ function ComunicadosPage() {
             </SelectContent>
           </Select>
         </div>
+        )}
 
         <div className="mt-6 divide-y border-y">
           {list.map((c) => (
@@ -134,7 +140,10 @@ function ComunicadosPage() {
               </time>
             </div>
           ))}
-          {list.length === 0 && (
+          {isLoading && (
+            <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
+          )}
+          {!isLoading && list.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">
               Nenhum comunicado por aqui.
             </p>
@@ -160,7 +169,7 @@ function ComunicadosPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ESCOLA}>Toda a escola</SelectItem>
-                  {INITIAL_TURMAS.map((t) => (
+                  {turmas.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {buildTurmaLabelFull(t)}
                     </SelectItem>
@@ -187,9 +196,9 @@ function ComunicadosPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleSend}>
-              <Send className="mr-2 size-4" />
-              Enviar
+            <Button onClick={handleSend} disabled={criarComunicado.isPending}>
+              <Send className="size-4" />
+              {criarComunicado.isPending ? "Enviando..." : "Enviar"}
             </Button>
           </DialogFooter>
         </DialogContent>

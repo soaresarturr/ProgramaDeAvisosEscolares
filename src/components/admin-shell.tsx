@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { MOCK_DB, useAuth } from "@/contexts/auth";
+import { useAuth } from "@/contexts/auth";
+import { PushPrompt } from "@/components/push-prompt";
+import { useMarcarNotificacoesLidas, useNotificacoes, useSolicitacoes } from "@/lib/db";
 import {
   Bell,
   CalendarCheck,
@@ -23,12 +25,13 @@ const cadastros = [
   { label: "Turmas", to: "/turmas" },
 ] as const;
 
-function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string }) {
+function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const canManage = role === "ADMIN" || role === "DEV" || role === "PROFESSOR";
   const cadastrosActive = cadastros.some((item) => item.to === pathname);
   const [open, setOpen] = useState(cadastrosActive);
-  const pendentes = MOCK_DB.users.filter((u) => u.requestedProfessor).length;
+  const isAdmin = role === "ADMIN" || role === "DEV";
+  const pendentes = useSolicitacoes(isAdmin).data?.length ?? 0;
 
   const itemClass = (active: boolean) =>
     `flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${
@@ -85,7 +88,7 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string
             Ano Letivo
           </Link>
 
-          {(role === "ADMIN" || role === "DEV") && (
+          {isAdmin && (
             <Link to="/solicitacoes" onClick={onNavigate} className={itemClass(pathname === "/solicitacoes")}>
               <ClipboardCheck className="size-4 shrink-0" />
               Solicitações
@@ -103,16 +106,13 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string
 }
 
 function NotificationsBell() {
-  const { notificacoes, marcarNotificacoesLidas } = useAuth();
+  const { user } = useAuth();
+  const { data: notificacoes = [] } = useNotificacoes(user?.id);
+  const marcarLidas = useMarcarNotificacoesLidas(user?.id);
   const naoLidas = notificacoes.filter((n) => !n.lida).length;
-  const [permissao, setPermissao] = useState<string>(
-    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
-  );
-
-  const ativarAvisos = async () => setPermissao(await Notification.requestPermission());
 
   return (
-    <Popover onOpenChange={(aberto) => !aberto && marcarNotificacoesLidas()}>
+    <Popover onOpenChange={(aberto) => !aberto && naoLidas > 0 && marcarLidas.mutate()}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" aria-label="Notificações">
           <Bell className="size-5" />
@@ -136,15 +136,9 @@ function NotificationsBell() {
             </Link>
           ))}
         </div>
-        {permissao === "default" && (
-          <button
-            type="button"
-            onClick={ativarAvisos}
-            className="w-full border-t px-4 py-3 text-left text-xs text-primary hover:bg-accent/60"
-          >
-            Receber avisos também no navegador
-          </button>
-        )}
+        <div className="border-t">
+          <PushPrompt compact />
+        </div>
       </PopoverContent>
     </Popover>
   );
@@ -196,9 +190,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center gap-1">
             {user?.role === "RESPONSAVEL" && <NotificationsBell />}
-            <Button variant="ghost" size="sm" className="text-muted-foreground gap-2" onClick={handleLogout}>
+            <Button variant="ghost" size="sm" className="text-muted-foreground gap-2" aria-label="Sair" onClick={handleLogout}>
               <LogOut className="size-4" />
-              Sair
+              <span className="hidden sm:inline">Sair</span>
             </Button>
           </div>
         </div>
