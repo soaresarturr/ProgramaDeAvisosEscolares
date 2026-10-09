@@ -20,8 +20,6 @@ interface AuthContextType {
   user: User | null;
   login: (username: string, senha: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  registerResponsavel: (name: string, dataNascimento: string, cpf: string) => Promise<{ success: boolean; username?: string; senha?: string }>;
-  requestProfessorRole: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, senha: string) => {
     const supabase = getSupabase();
+    // A senha vale exatamente como foi digitada (sem ajustes): com pontos ou traço, ela não confere.
     const { error } = await supabase.auth.signInWithPassword({
       email: usernameToEmail(username),
       password: senha,
@@ -78,60 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     toast.info("Você saiu do sistema.");
   };
 
-  const requestProfessorRole = async () => {
-    if (!user) return;
-    const { error } = await getSupabase().rpc("solicitar_professor");
-    if (error) {
-      toast.error("Não foi possível enviar a solicitação.");
-      return;
-    }
-    setUser({ ...user, requestedProfessor: true });
-    toast.success("Solicitação enviada! Um administrador irá aprovar o seu perfil de professor.");
-  };
-
-  const registerResponsavel = async (name: string, dataNascimento: string, cpf: string) => {
-    const cleanCpf = cpf.replace(/\D/g, "");
-    if (cleanCpf.length !== 11) {
-      toast.error("Informe um CPF completo.");
-      return { success: false };
-    }
-
-    // dataNascimento vem do <input type="date"> como "YYYY-MM-DD"
-    const [ano, mes, dia] = dataNascimento.split("-");
-    // Só letras sem acento e números: "João" vira "joao" (e-mail com acento é recusado pelo Supabase)
-    const primeiroNome = (name.trim().split(/\s+/)[0] ?? "")
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
-    const username = (primeiroNome || "usuario") + cleanCpf.slice(-3);
-    const senha = cleanCpf.substring(0, 4) + `${dia}${mes}${ano}`;
-
-    const supabase = getSupabase();
-    const { error } = await supabase.auth.signUp({
-      email: usernameToEmail(username),
-      password: senha,
-      options: { data: { name: name.trim(), username, cpf: cleanCpf, data_nascimento: dataNascimento } },
-    });
-    if (error) {
-      console.error("Erro no cadastro:", error.code, error.message);
-      const duplicado = error.code === "user_already_exists" || error.code === "email_exists";
-      toast.error(
-        duplicado
-          ? "Já existe um cadastro com este usuário."
-          : error.message.includes("Database error")
-            ? "Não foi possível criar a conta. Confira se o CPF já foi cadastrado."
-            : `Não foi possível criar a conta (${error.code ?? error.message}).`,
-      );
-      return { success: false };
-    }
-    // O cadastro entra logado por padrão; saímos para a pessoa fazer o login normalmente.
-    await supabase.auth.signOut();
-    return { success: true, username, senha };
-  };
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, registerResponsavel, requestProfessorRole }}>
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,3 +1,7 @@
+-- ⚠ NÃO RODE DE NOVO: arquivo histórico, já aplicado. Rodar outra vez volta o gatilho de perfil
+-- para uma versão antiga (contas novas ficam com o CPF no lugar do nome).
+-- Se isso acontecer, rode 20261012000000_corrigir_gatilho_perfil.sql.
+
 -- O usuário passa a ser SEMPRE gerado pelo banco (primeiro nome + 3 últimos dígitos do CPF).
 -- Antes, o navegador mandava o "username" nos metadados do cadastro e o gatilho confiava nele,
 -- então alguém com a chave anon poderia se cadastrar com o usuário que quisesse.

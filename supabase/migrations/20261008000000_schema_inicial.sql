@@ -1,3 +1,7 @@
+-- ⚠ NÃO RODE DE NOVO: arquivo histórico, já aplicado. Rodar outra vez volta o gatilho de perfil
+-- para uma versão antiga (contas novas ficam com o CPF no lugar do nome).
+-- Se isso acontecer, rode 20261012000000_corrigir_gatilho_perfil.sql.
+
 -- Portal Escolar — esquema inicial
 -- Rodar uma vez no Supabase: SQL Editor > New query > colar tudo > Run.
 --

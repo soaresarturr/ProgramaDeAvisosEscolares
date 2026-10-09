@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/auth";
 import { PushPrompt } from "@/components/push-prompt";
-import { useMarcarNotificacoesLidas, useNotificacoes, useSolicitacoes } from "@/lib/db";
+import { useMarcarNotificacoesLidas, useNotificacoes } from "@/lib/db";
 import {
   Bell,
   CalendarCheck,
-  ClipboardCheck,
+  UserCog,
+  ScrollText,
   ChevronDown,
   GraduationCap,
   LogOut,
@@ -31,7 +32,6 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string
   const cadastrosActive = cadastros.some((item) => item.to === pathname);
   const [open, setOpen] = useState(cadastrosActive);
   const isAdmin = role === "ADMIN" || role === "DEV";
-  const pendentes = useSolicitacoes(isAdmin).data?.length ?? 0;
 
   const itemClass = (active: boolean) =>
     `flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${
@@ -89,14 +89,16 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string
           </Link>
 
           {isAdmin && (
-            <Link to="/solicitacoes" onClick={onNavigate} className={itemClass(pathname === "/solicitacoes")}>
-              <ClipboardCheck className="size-4 shrink-0" />
-              Solicitações
-              {pendentes > 0 && (
-                <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
-                  {pendentes}
-                </span>
-              )}
+            <Link to="/usuarios" onClick={onNavigate} className={itemClass(pathname === "/usuarios")}>
+              <UserCog className="size-4 shrink-0" />
+              Usuários
+            </Link>
+          )}
+
+          {isAdmin && (
+            <Link to="/logs" onClick={onNavigate} className={itemClass(pathname === "/logs")}>
+              <ScrollText className="size-4 shrink-0" />
+              Registro de atividades
             </Link>
           )}
         </>

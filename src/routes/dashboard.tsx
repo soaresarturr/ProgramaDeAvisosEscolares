@@ -1,23 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Megaphone, Send, Users, UserPlus, Plus } from "lucide-react";
-import { toast } from "sonner";
+import { Megaphone, Send, Users } from "lucide-react";
 
-import { formatCpf } from "@/lib/utils";
 import { requireAuth } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { PushPrompt } from "@/components/push-prompt";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { useState } from "react";
 import {
   buildTurmaLabelFull,
-  dbErrorMessage,
   useAlunos,
   useComunicados,
-  useCriarAluno,
   useResponsaveis,
   useTurmas,
 } from "@/lib/db";
@@ -52,7 +44,7 @@ function formatDate(iso: string) {
 const headerButton = "h-10 px-4 sm:h-11 sm:px-6";
 
 function DashboardPage() {
-  const { user, requestProfessorRole } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const isResponsavel = user?.role === "RESPONSAVEL";
 
@@ -60,12 +52,6 @@ function DashboardPage() {
   const { data: turmas = [] } = useTurmas();
   const { data: alunos = [] } = useAlunos();
   const { data: responsaveis = [] } = useResponsaveis();
-  const criarAluno = useCriarAluno();
-
-  const [openAddFilho, setOpenAddFilho] = useState(false);
-  const [nomeFilho, setNomeFilho] = useState("");
-  const [cpfFilho, setCpfFilho] = useState("");
-  const [turmaFilho, setTurmaFilho] = useState("");
 
   const agora = Date.now();
   const summary = [
@@ -77,36 +63,6 @@ function DashboardPage() {
     },
     { label: "Responsáveis", value: responsaveis.length, icon: Megaphone },
   ];
-
-  const handleAddFilho = () => {
-    if (!user) return;
-    if (!nomeFilho.trim() || !turmaFilho) {
-      toast.error("Preencha todos os campos.");
-      return;
-    }
-    if (cpfFilho.replace(/\D/g, "").length !== 11) {
-      toast.error("Informe o CPF completo do aluno.");
-      return;
-    }
-    criarAluno.mutate(
-      { name: nomeFilho, cpf: cpfFilho, turmaId: turmaFilho, responsavelId: user.id },
-      {
-        onSuccess: () => {
-          toast.success("Filho cadastrado! Você vai receber os comunicados da turma.");
-          setNomeFilho("");
-          setCpfFilho("");
-          setTurmaFilho("");
-          setOpenAddFilho(false);
-        },
-        onError: (e) =>
-          toast.error(
-            (e as { code?: string }).code === "23505"
-              ? "Este CPF já está cadastrado. Se for seu filho, fale com a escola."
-              : dbErrorMessage(e),
-          ),
-      },
-    );
-  };
 
   const meusFilhos = alunos.filter((a) => a.responsavelId === user?.id);
 
@@ -126,24 +82,7 @@ function DashboardPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            {isResponsavel ? (
-              <>
-                <Button variant="outline" className={headerButton} onClick={() => setOpenAddFilho(true)}>
-                  <Plus className="size-4" />
-                  Adicionar filho
-                </Button>
-                {user.requestedProfessor ? (
-                  <Button disabled className={headerButton}>
-                    Solicitação em análise
-                  </Button>
-                ) : (
-                  <Button className={headerButton} onClick={() => void requestProfessorRole()}>
-                    <UserPlus className="size-4" />
-                    Sou Professor
-                  </Button>
-                )}
-              </>
-            ) : (
+            {!isResponsavel && (
               <Button className={headerButton} onClick={() => navigate({ to: "/comunicados" })}>
                 <Megaphone className="size-4" />
                 Novo comunicado
@@ -177,7 +116,7 @@ function DashboardPage() {
               })}
               {meusFilhos.length === 0 && (
                 <p className="py-4 text-sm text-muted-foreground">
-                  Adicione seu filho para receber os comunicados da turma dele.
+                  Nenhum filho vinculado ainda. Fale com a secretaria da escola.
                 </p>
               )}
             </div>
@@ -229,65 +168,6 @@ function DashboardPage() {
         </section>
       </div>
 
-      <Dialog open={openAddFilho} onOpenChange={setOpenAddFilho}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Adicionar Filho</DialogTitle>
-            <DialogDescription>
-              Cadastre seu filho para receber os comunicados da turma dele.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="nomeFilho">Nome Completo</Label>
-              <Input
-                id="nomeFilho"
-                placeholder="Nome do aluno"
-                value={nomeFilho}
-                onChange={(e) => setNomeFilho(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="cpfFilho">CPF do Aluno</Label>
-              <Input
-                id="cpfFilho"
-                inputMode="numeric"
-                placeholder="000.000.000-00"
-                maxLength={14}
-                value={cpfFilho}
-                onChange={(e) => setCpfFilho(formatCpf(e.target.value))}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="turmaFilho">Turma</Label>
-              <select
-                id="turmaFilho"
-                value={turmaFilho}
-                onChange={(e) => setTurmaFilho(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:text-sm"
-              >
-                <option value="" disabled>Selecione a turma...</option>
-                {turmas.map((t) => (
-                  <option key={t.id} value={t.id}>{buildTurmaLabelFull(t)}</option>
-                ))}
-              </select>
-              {turmas.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  A escola ainda não cadastrou turmas.
-                </p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpenAddFilho(false)}>
-              Cancelar
-            </Button>
-            <Button type="button" onClick={handleAddFilho} disabled={criarAluno.isPending}>
-              {criarAluno.isPending ? "Salvando..." : "Salvar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AdminShell>
   );
 }

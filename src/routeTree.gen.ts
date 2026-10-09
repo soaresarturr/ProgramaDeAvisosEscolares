@@ -15,10 +15,10 @@ import { Route as AnoLetivoRouteImport } from './routes/ano-letivo'
 import { Route as ComunicadosRouteImport } from './routes/comunicados'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as RegisterRouteImport } from './routes/register'
+import { Route as LogsRouteImport } from './routes/logs'
 import { Route as ResponsaveisRouteImport } from './routes/responsaveis'
-import { Route as SolicitacoesRouteImport } from './routes/solicitacoes'
 import { Route as TurmasRouteImport } from './routes/turmas'
+import { Route as UsuariosRouteImport } from './routes/usuarios'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -50,9 +50,9 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
+const LogsRoute = LogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResponsaveisRoute = ResponsaveisRouteImport.update({
@@ -60,14 +60,14 @@ const ResponsaveisRoute = ResponsaveisRouteImport.update({
   path: '/responsaveis',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SolicitacoesRoute = SolicitacoesRouteImport.update({
-  id: '/solicitacoes',
-  path: '/solicitacoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const TurmasRoute = TurmasRouteImport.update({
   id: '/turmas',
   path: '/turmas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UsuariosRoute = UsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -78,10 +78,10 @@ export interface FileRoutesByFullPath {
   '/comunicados': typeof ComunicadosRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
+  '/logs': typeof LogsRoute
   '/responsaveis': typeof ResponsaveisRoute
-  '/solicitacoes': typeof SolicitacoesRoute
   '/turmas': typeof TurmasRoute
+  '/usuarios': typeof UsuariosRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -90,10 +90,10 @@ export interface FileRoutesByTo {
   '/comunicados': typeof ComunicadosRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
+  '/logs': typeof LogsRoute
   '/responsaveis': typeof ResponsaveisRoute
-  '/solicitacoes': typeof SolicitacoesRoute
   '/turmas': typeof TurmasRoute
+  '/usuarios': typeof UsuariosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -103,10 +103,10 @@ export interface FileRoutesById {
   '/comunicados': typeof ComunicadosRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
-  '/register': typeof RegisterRoute
+  '/logs': typeof LogsRoute
   '/responsaveis': typeof ResponsaveisRoute
-  '/solicitacoes': typeof SolicitacoesRoute
   '/turmas': typeof TurmasRoute
+  '/usuarios': typeof UsuariosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -117,10 +117,10 @@ export interface FileRouteTypes {
     | '/comunicados'
     | '/dashboard'
     | '/login'
-    | '/register'
+    | '/logs'
     | '/responsaveis'
-    | '/solicitacoes'
     | '/turmas'
+    | '/usuarios'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -129,10 +129,10 @@ export interface FileRouteTypes {
     | '/comunicados'
     | '/dashboard'
     | '/login'
-    | '/register'
+    | '/logs'
     | '/responsaveis'
-    | '/solicitacoes'
     | '/turmas'
+    | '/usuarios'
   id:
     | '__root__'
     | '/'
@@ -141,10 +141,10 @@ export interface FileRouteTypes {
     | '/comunicados'
     | '/dashboard'
     | '/login'
-    | '/register'
+    | '/logs'
     | '/responsaveis'
-    | '/solicitacoes'
     | '/turmas'
+    | '/usuarios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -154,10 +154,10 @@ export interface RootRouteChildren {
   ComunicadosRoute: typeof ComunicadosRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
-  RegisterRoute: typeof RegisterRoute
+  LogsRoute: typeof LogsRoute
   ResponsaveisRoute: typeof ResponsaveisRoute
-  SolicitacoesRoute: typeof SolicitacoesRoute
   TurmasRoute: typeof TurmasRoute
+  UsuariosRoute: typeof UsuariosRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -204,11 +204,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
+    '/logs': {
+      id: '/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof LogsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/responsaveis': {
@@ -218,18 +218,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResponsaveisRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/solicitacoes': {
-      id: '/solicitacoes'
-      path: '/solicitacoes'
-      fullPath: '/solicitacoes'
-      preLoaderRoute: typeof SolicitacoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/turmas': {
       id: '/turmas'
       path: '/turmas'
       fullPath: '/turmas'
       preLoaderRoute: typeof TurmasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/usuarios': {
+      id: '/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof UsuariosRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -242,10 +242,10 @@ const rootRouteChildren: RootRouteChildren = {
   ComunicadosRoute: ComunicadosRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
-  RegisterRoute: RegisterRoute,
+  LogsRoute: LogsRoute,
   ResponsaveisRoute: ResponsaveisRoute,
-  SolicitacoesRoute: SolicitacoesRoute,
   TurmasRoute: TurmasRoute,
+  UsuariosRoute: UsuariosRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

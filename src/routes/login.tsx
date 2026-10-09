@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth";
+import { formatCpf } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,13 +39,16 @@ function LoginPage() {
             <Input
               id="username"
               type="text"
+              inputMode="numeric"
+              autoComplete="username"
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="Seu usuário de acesso"
+              placeholder="Seu usuário"
               required
               value={username}
-              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              // Só números; pontos e traço entram sozinhos (o login usa apenas os dígitos)
+              onChange={(e) => setUsername(formatCpf(e.target.value))}
             />
           </div>
           <div className="space-y-2">
@@ -52,6 +56,7 @@ function LoginPage() {
             <Input
               id="senha"
               type="password"
+              autoComplete="current-password"
               autoCapitalize="none"
               autoCorrect="off"
               required
@@ -63,12 +68,9 @@ function LoginPage() {
             Entrar
           </Button>
         </form>
-        <div className="text-center text-sm">
-          Ainda não tem conta?{" "}
-          <Link to="/register" className="font-medium text-primary hover:underline">
-            Criar nova conta
-          </Link>
-        </div>
+        <p className="text-center text-sm text-muted-foreground">
+          Não tem acesso? Peça à secretaria da escola.
+        </p>
       </div>
     </div>
   );

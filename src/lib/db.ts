@@ -15,7 +15,6 @@ export interface Turma {
   sufixo: string;
   anoLetivo: number;
   totalAlunos: number;
-  codigoAcesso: string;
 }
 
 export interface Aluno {
@@ -44,10 +43,23 @@ export interface Comunicado {
   id: string;
   titulo: string;
   mensagem: string;
-  /** null = toda a escola */
+  /** null = toda a escola (ou mensagem privada) */
   turmaId: string | null;
+  /** Mensagem só para alunos escolhidos */
+  privado: boolean;
+  /** Alunos da mensagem privada (o responsável só recebe os nomes dos próprios filhos) */
+  alunosNomes: string[];
   destinoLabel: string;
+  autorNome: string | null;
   criadoEm: string;
+}
+
+export interface LogEntry {
+  id: number;
+  criadoEm: string;
+  atorNome: string | null;
+  acao: string;
+  detalhes: string | null;
 }
 
 export interface Notificacao {
@@ -100,7 +112,6 @@ interface TurmaRow {
   ano: string;
   sufixo: string;
   ano_letivo: number;
-  codigo_acesso: string;
   alunos: { count: number }[];
 }
 
@@ -111,7 +122,7 @@ export function useTurmas() {
       const rows = unwrap<TurmaRow[]>(
         await getSupabase()
           .from("turmas")
-          .select("id, ano, sufixo, ano_letivo, codigo_acesso, alunos(count)")
+          .select("id, ano, sufixo, ano_letivo, alunos(count)")
           .order("ano_letivo", { ascending: false })
           .order("ano")
           .order("sufixo"),
@@ -121,7 +132,6 @@ export function useTurmas() {
         ano: r.ano,
         sufixo: r.sufixo,
         anoLetivo: r.ano_letivo,
-        codigoAcesso: r.codigo_acesso,
         totalAlunos: r.alunos[0]?.count ?? 0,
       }));
     },
@@ -241,6 +251,18 @@ export function usePassarAno() {
   });
 }
 
+/** Nome do ano para a tela: "J" → "Jardim", "1" → "1º ano". */
+export function anoLabel(ano: string): string {
+  const a = ano.trim().toUpperCase();
+  return a === "J" ? "Jardim" : /^\d+$/.test(a) ? `${a}º ano` : a;
+}
+
+/** Ordena anos na sequência da escola: J, 1, 2, 3... */
+export function compararAnos(a: string, b: string): number {
+  const peso = (x: string) => (x.toUpperCase() === "J" ? 0 : Number(x) || 999);
+  return peso(a) - peso(b) || a.localeCompare(b);
+}
+
 /** Ordem dos anos: J (Jardim) → 1 → 2 → 3 ... Devolve null se não houver próximo. */
 export function proximoAno(ano: string): string | null {
   const a = ano.trim().toUpperCase();
@@ -265,31 +287,70 @@ export function useResponsaveis() {
   });
 }
 
-export function useSolicitacoes(enabled = true) {
+/* ── Usuários (contas criadas pela administração) ────────────── */
+
+export type Papel = "ADMIN" | "DEV" | "PROFESSOR" | "RESPONSAVEL";
+
+export interface Usuario {
+  id: string;
+  name: string;
+  username: string;
+  cpf: string | null;
+  role: Papel;
+}
+
+export interface Credenciais {
+  login: string;
+  senha: string;
+}
+
+export function useUsuarios() {
   return useQuery({
-    queryKey: ["solicitacoes"],
-    enabled,
-    queryFn: async (): Promise<Solicitacao[]> =>
-      unwrap<Solicitacao[]>(
-        await getSupabase()
-          .from("profiles")
-          .select("id, name, username")
-          .eq("requested_professor", true)
-          .order("name"),
+    queryKey: ["usuarios"],
+    queryFn: async (): Promise<Usuario[]> =>
+      unwrap<Usuario[]>(
+        await getSupabase().from("profiles").select("id, name, username, cpf, role").order("name"),
       ),
   });
 }
 
-export function useDecidirSolicitacao() {
+/** Chama a Edge Function "gerenciar-usuarios" e devolve a mensagem de erro dela, se houver. */
+async function gerenciarUsuarios<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await getSupabase().functions.invoke("gerenciar-usuarios", { body });
+  if (error) {
+    let mensagem = "Não foi possível concluir. Tente novamente.";
+    try {
+      const resposta = (error as { context?: Response }).context;
+      const corpo = (await resposta?.json()) as { erro?: string } | undefined;
+      if (corpo?.erro) mensagem = corpo.erro;
+    } catch {
+      // resposta sem JSON: fica a mensagem genérica
+    }
+    throw new Error(mensagem);
+  }
+  return data as T;
+}
+
+/** Remove a conta; o banco apaga junto os filhos, notificações e aparelhos de push. */
+export function useRemoverUsuario() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ userId, aprovar }: { userId: string; aprovar: boolean }) => {
-      unwrap(
-        await getSupabase().rpc(aprovar ? "aprovar_professor" : "recusar_professor", { p_user: userId }),
-      );
-    },
+    mutationFn: (userId: string) => gerenciarUsuarios<{ ok: true }>({ acao: "remover", userId }),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["solicitacoes"] });
+      for (const key of ["usuarios", "responsaveis", "alunos", "turmas"]) {
+        void qc.invalidateQueries({ queryKey: [key] });
+      }
+    },
+  });
+}
+
+export function useCriarUsuario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (u: { nome: string; cpf: string; papel: Papel }) =>
+      gerenciarUsuarios<Credenciais & { userId: string }>({ acao: "criar", ...u }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["usuarios"] });
       void qc.invalidateQueries({ queryKey: ["responsaveis"] });
     },
   });
@@ -303,7 +364,10 @@ interface ComunicadoRow {
   mensagem: string;
   turma_id: string | null;
   criado_em: string;
+  privado: boolean;
+  autor_nome: string | null;
   turma: { ano: string; sufixo: string; ano_letivo: number } | null;
+  alvos: { aluno: { name: string } | null }[];
 }
 
 export function useComunicados() {
@@ -313,19 +377,30 @@ export function useComunicados() {
       const rows = unwrap<ComunicadoRow[]>(
         await getSupabase()
           .from("comunicados")
-          .select("id, titulo, mensagem, turma_id, criado_em, turma:turmas(ano, sufixo, ano_letivo)")
+          .select(
+            "id, titulo, mensagem, turma_id, criado_em, privado, autor_nome, " +
+              "turma:turmas(ano, sufixo, ano_letivo), alvos:comunicado_alunos(aluno:alunos(name))",
+          )
           .order("criado_em", { ascending: false }),
       );
-      return rows.map((r) => ({
-        id: r.id,
-        titulo: r.titulo,
-        mensagem: r.mensagem,
-        turmaId: r.turma_id,
-        criadoEm: r.criado_em,
-        destinoLabel: r.turma
-          ? buildTurmaLabelFull({ ano: r.turma.ano, sufixo: r.turma.sufixo, anoLetivo: r.turma.ano_letivo })
-          : "Toda a escola",
-      }));
+      return rows.map((r) => {
+        const alunosNomes = r.alvos.flatMap((a) => (a.aluno ? [a.aluno.name] : [])).sort();
+        return {
+          id: r.id,
+          titulo: r.titulo,
+          mensagem: r.mensagem,
+          turmaId: r.turma_id,
+          privado: r.privado,
+          alunosNomes,
+          autorNome: r.autor_nome,
+          criadoEm: r.criado_em,
+          destinoLabel: r.privado
+            ? alunosNomes.join(", ") || "Alunos escolhidos"
+            : r.turma
+              ? buildTurmaLabelFull({ ano: r.turma.ano, sufixo: r.turma.sufixo, anoLetivo: r.turma.ano_letivo })
+              : "Toda a escola",
+        };
+      });
     },
   });
 }
@@ -334,15 +409,48 @@ export function useComunicados() {
 export function useCriarComunicado() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (c: { titulo: string; mensagem: string; turmaId: string | null }) =>
+    mutationFn: async (c: { titulo: string; mensagem: string; turmaId: string | null; alunoIds?: string[] }) =>
       unwrap<number>(
         await getSupabase().rpc("criar_comunicado", {
           p_titulo: c.titulo,
           p_mensagem: c.mensagem,
           p_turma_id: c.turmaId,
+          p_aluno_ids: c.alunoIds && c.alunoIds.length > 0 ? c.alunoIds : null,
         }),
       ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["comunicados"] }),
+  });
+}
+
+/* ── Log de atividades (só administração) ───────────────────── */
+
+interface LogRow {
+  id: number;
+  criado_em: string;
+  ator_nome: string | null;
+  acao: string;
+  detalhes: string | null;
+}
+
+export function useLogs(limite: number) {
+  return useQuery({
+    queryKey: ["logs", limite],
+    queryFn: async (): Promise<LogEntry[]> => {
+      const rows = unwrap<LogRow[]>(
+        await getSupabase()
+          .from("logs")
+          .select("id, criado_em, ator_nome, acao, detalhes")
+          .order("criado_em", { ascending: false })
+          .limit(limite),
+      );
+      return rows.map((r) => ({
+        id: r.id,
+        criadoEm: r.criado_em,
+        atorNome: r.ator_nome,
+        acao: r.acao,
+        detalhes: r.detalhes,
+      }));
+    },
   });
 }
 

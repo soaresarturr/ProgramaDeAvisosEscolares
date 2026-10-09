@@ -15,5 +15,11 @@ export function getSupabase() {
   return client;
 }
 
-/** O Supabase Auth exige e-mail; o usuário digitado vira um e-mail interno. */
-export const usernameToEmail = (username: string) => `${username.trim().toLowerCase()}@escola.local`;
+/**
+ * O Supabase Auth exige e-mail; o usuário (sempre numérico) vira um e-mail interno.
+ * Só os dígitos contam, então "123.456.789-01" e "12345678901" dão no mesmo login.
+ * Pais e professores: CPF (11 dígitos). Administração: número próprio, com menos dígitos.
+ */
+export function usernameToEmail(login: string) {
+  return `${login.replace(/\D/g, "")}@escola.local`;
+}
