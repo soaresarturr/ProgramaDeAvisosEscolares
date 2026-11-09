@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 
 import { formatCpf } from "@/lib/utils";
-import { requireStaff } from "@/lib/session";
+import { ehAdmin, requireStaff } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth";
@@ -45,7 +45,7 @@ const selectClass =
 function AlunosPage() {
   const { user } = useAuth();
   // Professor só consulta; cadastrar e remover é com a administração
-  const canEdit = user?.role === "ADMIN" || user?.role === "DEV";
+  const canEdit = ehAdmin(user?.role);
 
   const { data: alunos = [], isLoading } = useAlunos();
   const { data: turmas = [] } = useTurmas();

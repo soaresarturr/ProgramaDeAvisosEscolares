@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { requireAdmin } from "@/lib/session";
+import { requireLogs } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLogs } from "@/lib/db";
 
 export const Route = createFileRoute("/logs")({
-  beforeLoad: requireAdmin,
+  beforeLoad: requireLogs,
   head: () => ({
     meta: [{ title: "Registro de atividades | Portal Escolar" }],
   }),

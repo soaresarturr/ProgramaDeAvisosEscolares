@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { requireStaff } from "@/lib/session";
+import { ehStaff, requireStaff } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -148,7 +148,7 @@ function TurmasPage() {
     setDeleteConfirm(null);
   }
 
-  const canManage = user?.role === "ADMIN" || user?.role === "DEV" || user?.role === "PROFESSOR";
+  const canManage = ehStaff(user?.role);
 
   // Group by anoLetivo, then sort within
   const anosLetivos = [...new Set(turmas.map((t) => t.anoLetivo))].sort((a, b) => b - a);

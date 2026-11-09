@@ -68,9 +68,31 @@ export async function requireStaff() {
   return { user };
 }
 
-// Telas só para administração (ADMIN/DEV); os demais perfis voltam para o início.
+// Administração = ADMIN, DEV e DIRETOR (a direção da escola).
+export function ehAdmin(role: string | undefined) {
+  return role === "ADMIN" || role === "DEV" || role === "DIRETOR";
+}
+
+// Equipe = administração + professores.
+export function ehStaff(role: string | undefined) {
+  return ehAdmin(role) || role === "PROFESSOR";
+}
+
+// Registro de atividades: só ADMIN e DEV (o DIRETOR não vê).
+export function veLogs(role: string | undefined) {
+  return role === "ADMIN" || role === "DEV";
+}
+
+// Telas só para administração (ADMIN/DEV/DIRETOR); os demais perfis voltam para o início.
 export async function requireAdmin() {
   const { user } = await requireAuth();
-  if (user.role !== "ADMIN" && user.role !== "DEV") throw redirect({ to: "/dashboard" });
+  if (!ehAdmin(user.role)) throw redirect({ to: "/dashboard" });
+  return { user };
+}
+
+// Tela do registro de atividades: só ADMIN e DEV.
+export async function requireLogs() {
+  const { user } = await requireAuth();
+  if (!veLogs(user.role)) throw redirect({ to: "/dashboard" });
   return { user };
 }

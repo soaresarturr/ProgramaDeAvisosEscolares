@@ -2,8 +2,9 @@
 //
 // Quem chama: o próprio site, com o login de quem está usando (supabase.functions.invoke).
 // Regras:
-//   * só ADMIN e DEV usam esta função;
-//   * ADMIN cria/remove RESPONSAVEL e PROFESSOR; só DEV cria/remove ADMIN;
+//   * só ADMIN, DIRETOR e DEV usam esta função;
+//   * ADMIN e DIRETOR criam/removem RESPONSAVEL e PROFESSOR; só DEV cria/remove ADMIN;
+//   * DIRETOR só é removido por ADMIN ou DEV;
 //   * contas DEV e a própria conta não são removidas por aqui.
 // Login = CPF. Senha padrão = primeiro nome (minúsculo, sem acento) + CPF.
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já existem automaticamente nas Edge Functions.
@@ -15,10 +16,11 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type Papel = "ADMIN" | "DEV" | "PROFESSOR" | "RESPONSAVEL";
+type Papel = "ADMIN" | "DEV" | "DIRETOR" | "PROFESSOR" | "RESPONSAVEL";
 
 const PODE_CRIAR: Record<string, Papel[]> = {
   ADMIN: ["RESPONSAVEL", "PROFESSOR"],
+  DIRETOR: ["RESPONSAVEL", "PROFESSOR"],
   DEV: ["RESPONSAVEL", "PROFESSOR", "ADMIN"],
 };
 
@@ -69,7 +71,7 @@ Deno.serve(async (req) => {
     return responder({ erro: `Erro ao conferir seu perfil (${erroPerfil.code ?? erroPerfil.message}).` }, 500);
   }
   const papelChamador = chamador?.role as Papel | undefined;
-  if (papelChamador !== "ADMIN" && papelChamador !== "DEV") {
+  if (papelChamador !== "ADMIN" && papelChamador !== "DEV" && papelChamador !== "DIRETOR") {
     return responder({ erro: `Você não tem permissão para isso (seu perfil: ${papelChamador ?? "nenhum"}).` }, 403);
   }
 
@@ -86,6 +88,7 @@ Deno.serve(async (req) => {
     PROFESSOR: "professor(a)",
     ADMIN: "administração",
     DEV: "desenvolvedor",
+    DIRETOR: "direção",
   };
 
   let body: Record<string, unknown>;
@@ -133,6 +136,9 @@ Deno.serve(async (req) => {
     if (alvo.role === "DEV") return responder({ erro: "Contas DEV não podem ser removidas por aqui." }, 403);
     if (alvo.role === "ADMIN" && papelChamador !== "DEV") {
       return responder({ erro: "Só o DEV remove administradores." }, 403);
+    }
+    if (alvo.role === "DIRETOR" && papelChamador === "DIRETOR") {
+      return responder({ erro: "Só a administração remove a conta da direção." }, 403);
     }
 
     // O banco apaga em cascata: perfil → filhos → notificações → aparelhos de push

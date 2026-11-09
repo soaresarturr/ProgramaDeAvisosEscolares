@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Lock, Megaphone, Send } from "lucide-react";
 import { toast } from "sonner";
 
-import { requireAuth } from "@/lib/session";
+import { ehStaff, requireAuth } from "@/lib/session";
 import { AdminShell } from "@/components/admin-shell";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,7 +64,7 @@ function ComunicadosPage() {
   const { user } = useAuth();
   const { data: comunicados = [], isLoading } = useComunicados();
   const { data: turmas = [] } = useTurmas();
-  const canSend = user?.role === "ADMIN" || user?.role === "DEV" || user?.role === "PROFESSOR";
+  const canSend = ehStaff(user?.role);
 
   const [filter, setFilter] = useState("todos");
   const [open, setOpen] = useState(false);

@@ -289,7 +289,7 @@ export function useResponsaveis() {
 
 /* ── Usuários (contas criadas pela administração) ────────────── */
 
-export type Papel = "ADMIN" | "DEV" | "PROFESSOR" | "RESPONSAVEL";
+export type Papel = "ADMIN" | "DEV" | "DIRETOR" | "PROFESSOR" | "RESPONSAVEL";
 
 export interface Usuario {
   id: string;

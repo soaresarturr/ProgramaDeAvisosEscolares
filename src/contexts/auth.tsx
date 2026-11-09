@@ -12,7 +12,7 @@ export interface User {
   username: string; // Used for login
   cpf?: string;
   dataNascimento?: string;
-  role: "ADMIN" | "DEV" | "RESPONSAVEL" | "PROFESSOR";
+  role: "ADMIN" | "DEV" | "DIRETOR" | "RESPONSAVEL" | "PROFESSOR";
   requestedProfessor?: boolean;
 }
 

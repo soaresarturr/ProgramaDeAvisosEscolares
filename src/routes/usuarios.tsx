@@ -45,6 +45,7 @@ const PAPEL_LABEL: Record<Papel, string> = {
   PROFESSOR: "Professor(a)",
   ADMIN: "Administração",
   DEV: "Desenvolvedor",
+  DIRETOR: "Direção",
 };
 
 const selectClass =
@@ -78,9 +79,13 @@ function UsuariosPage() {
       (termoCpf.length > 0 && (u.cpf ?? "").includes(termoCpf)),
   );
 
-  // ADMIN remove pais e professores; só o DEV remove administradores. DEV e a própria conta, nunca.
+  // ADMIN/DIRETOR removem pais e professores; só o DEV remove administradores;
+  // a conta da direção só sai pela administração. DEV e a própria conta, nunca.
   const podeRemover = (u: Usuario) =>
-    u.id !== user?.id && u.role !== "DEV" && (u.role !== "ADMIN" || user?.role === "DEV");
+    u.id !== user?.id &&
+    u.role !== "DEV" &&
+    (u.role !== "ADMIN" || user?.role === "DEV") &&
+    (u.role !== "DIRETOR" || user?.role !== "DIRETOR");
 
   const filhosDe = (u: Usuario) => alunos.filter((a) => a.responsavelId === u.id);
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/contexts/auth";
+import { ehAdmin, ehStaff, veLogs } from "@/lib/session";
 import { PushPrompt } from "@/components/push-prompt";
 import { useMarcarNotificacoesLidas, useNotificacoes } from "@/lib/db";
 import {
@@ -28,10 +29,10 @@ const cadastros = [
 
 function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const canManage = role === "ADMIN" || role === "DEV" || role === "PROFESSOR";
+  const canManage = ehStaff(role);
   const cadastrosActive = cadastros.some((item) => item.to === pathname);
   const [open, setOpen] = useState(cadastrosActive);
-  const isAdmin = role === "ADMIN" || role === "DEV";
+  const isAdmin = ehAdmin(role);
 
   const itemClass = (active: boolean) =>
     `flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${
@@ -95,7 +96,7 @@ function NavLinks({ onNavigate, role }: { onNavigate?: () => void; role?: string
             </Link>
           )}
 
-          {isAdmin && (
+          {veLogs(role) && (
             <Link to="/logs" onClick={onNavigate} className={itemClass(pathname === "/logs")}>
               <ScrollText className="size-4 shrink-0" />
               Registro de atividades
