@@ -92,7 +92,10 @@ interface DbError {
 }
 
 /** Traduz os erros mais comuns do Postgres para mensagens da escola. */
-export function dbErrorMessage(error: unknown, fallback = "Não foi possível salvar. Tente novamente."): string {
+export function dbErrorMessage(
+  error: unknown,
+  fallback = "Não foi possível salvar. Tente novamente.",
+): string {
   const e = error as DbError | null;
   if (e?.code === "23505") return "Já existe um cadastro com esses dados.";
   if (e?.code === "23503") return "Não dá para remover: ainda há registros ligados a este item.";
@@ -202,14 +205,21 @@ export function useAlunos() {
 export function useCriarAluno() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (a: { name: string; cpf: string; turmaId: string; responsavelId: string }) => {
+    mutationFn: async (a: {
+      name: string;
+      cpf: string;
+      turmaId: string;
+      responsavelId: string;
+    }) => {
       unwrap(
-        await getSupabase().from("alunos").insert({
-          name: a.name.trim(),
-          cpf: a.cpf.replace(/\D/g, ""),
-          turma_id: a.turmaId,
-          responsavel_id: a.responsavelId,
-        }),
+        await getSupabase()
+          .from("alunos")
+          .insert({
+            name: a.name.trim(),
+            cpf: a.cpf.replace(/\D/g, ""),
+            turma_id: a.turmaId,
+            responsavel_id: a.responsavelId,
+          }),
       );
     },
     onSuccess: () => {
@@ -344,6 +354,20 @@ export function useRemoverUsuario() {
   });
 }
 
+/** Corrige nome/CPF. Se o login ou a senha padrão mudarem, devolve as novas credenciais. */
+export function useEditarUsuario() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (u: { userId: string; nome: string; cpf?: string }) =>
+      gerenciarUsuarios<{ ok: true } & Partial<Credenciais>>({ acao: "editar", ...u }),
+    onSuccess: () => {
+      for (const key of ["usuarios", "responsaveis", "alunos"]) {
+        void qc.invalidateQueries({ queryKey: [key] });
+      }
+    },
+  });
+}
+
 export function useCriarUsuario() {
   const qc = useQueryClient();
   return useMutation({
@@ -397,7 +421,11 @@ export function useComunicados() {
           destinoLabel: r.privado
             ? alunosNomes.join(", ") || "Alunos escolhidos"
             : r.turma
-              ? buildTurmaLabelFull({ ano: r.turma.ano, sufixo: r.turma.sufixo, anoLetivo: r.turma.ano_letivo })
+              ? buildTurmaLabelFull({
+                  ano: r.turma.ano,
+                  sufixo: r.turma.sufixo,
+                  anoLetivo: r.turma.ano_letivo,
+                })
               : "Toda a escola",
         };
       });
@@ -409,7 +437,12 @@ export function useComunicados() {
 export function useCriarComunicado() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (c: { titulo: string; mensagem: string; turmaId: string | null; alunoIds?: string[] }) =>
+    mutationFn: async (c: {
+      titulo: string;
+      mensagem: string;
+      turmaId: string | null;
+      alunoIds?: string[];
+    }) =>
       unwrap<number>(
         await getSupabase().rpc("criar_comunicado", {
           p_titulo: c.titulo,
@@ -474,7 +507,12 @@ export function useNotificacoes(userId: string | undefined) {
       .channel(`notificacoes-${userId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notificacoes", filter: `user_id=eq.${userId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notificacoes",
+          filter: `user_id=eq.${userId}`,
+        },
         () => {
           void qc.invalidateQueries({ queryKey: ["notificacoes", userId] });
           void qc.invalidateQueries({ queryKey: ["comunicados"] });
@@ -513,7 +551,11 @@ export function useMarcarNotificacoesLidas(userId: string | undefined) {
     mutationFn: async () => {
       if (!userId) return;
       unwrap(
-        await getSupabase().from("notificacoes").update({ lida: true }).eq("user_id", userId).eq("lida", false),
+        await getSupabase()
+          .from("notificacoes")
+          .update({ lida: true })
+          .eq("user_id", userId)
+          .eq("lida", false),
       );
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notificacoes", userId] }),

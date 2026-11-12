@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Copy, Plus, Printer, Trash2, UserPlus } from "lucide-react";
+import { Copy, Pencil, Plus, Printer, Trash2, Undo2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { requireAdmin } from "@/lib/session";
@@ -24,8 +24,10 @@ import {
   type Papel,
   type Usuario,
   buildTurmaLabelFull,
+  dbErrorMessage,
   useAlunos,
   useCriarUsuario,
+  useEditarUsuario,
   useRemoverUsuario,
   useTurmas,
   useUsuarios,
@@ -52,9 +54,13 @@ const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:text-sm";
 
 interface FilhoForm {
+  /** Aluno já cadastrado (na edição); sem id = filho novo */
+  id?: string;
   nome: string;
   cpf: string;
   turmaId: string;
+  /** Marcado para remover ao salvar (na edição) */
+  removido?: boolean;
 }
 
 const filhoVazio = (): FilhoForm => ({ nome: "", cpf: "", turmaId: "" });
@@ -68,7 +74,10 @@ function UsuariosPage() {
 
   const [busca, setBusca] = useState("");
   const [criando, setCriando] = useState(false);
-  const [credenciais, setCredenciais] = useState<(Credenciais & { nome: string; aviso?: string }) | null>(null);
+  const [editando, setEditando] = useState<Usuario | null>(null);
+  const [credenciais, setCredenciais] = useState<
+    (Credenciais & { nome: string; aviso?: string }) | null
+  >(null);
 
   const termo = busca.trim().toLowerCase();
   const termoCpf = busca.replace(/\D/g, "");
@@ -86,6 +95,9 @@ function UsuariosPage() {
     u.role !== "DEV" &&
     (u.role !== "ADMIN" || user?.role === "DEV") &&
     (u.role !== "DIRETOR" || user?.role !== "DIRETOR");
+
+  // Editar segue as mesmas regras de remover (só a administração entra nesta tela).
+  const podeEditar = podeRemover;
 
   const filhosDe = (u: Usuario) => alunos.filter((a) => a.responsavelId === u.id);
 
@@ -108,7 +120,10 @@ function UsuariosPage() {
               Crie o acesso dos pais e professores. O usuário é o CPF.
             </p>
           </div>
-          <Button className="h-10 self-start px-4 sm:h-11 sm:self-auto sm:px-6" onClick={() => setCriando(true)}>
+          <Button
+            className="h-10 self-start px-4 sm:h-11 sm:self-auto sm:px-6"
+            onClick={() => setCriando(true)}
+          >
             <UserPlus className="size-4" />
             Novo usuário
           </Button>
@@ -124,9 +139,13 @@ function UsuariosPage() {
         </div>
 
         <div className="mt-4 divide-y border-y">
-          {isLoading && <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>}
+          {isLoading && (
+            <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
+          )}
           {!isLoading && lista.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Nenhum usuário encontrado.
+            </p>
           )}
           {lista.map((u) => (
             <div key={u.id} className="flex items-center justify-between gap-3 py-4">
@@ -136,17 +155,30 @@ function UsuariosPage() {
                   {PAPEL_LABEL[u.role]} · {u.cpf ? formatCpf(u.cpf) : `usuário: ${u.username}`}
                 </p>
               </div>
-              {podeRemover(u) && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                  aria-label={`Remover ${u.name}`}
-                  onClick={() => setRemover(u)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              )}
+              <div className="flex shrink-0 items-center gap-1">
+                {podeEditar(u) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label={`Editar ${u.name}`}
+                    onClick={() => setEditando(u)}
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                )}
+                {podeRemover(u) && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label={`Remover ${u.name}`}
+                    onClick={() => setRemover(u)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -163,13 +195,28 @@ function UsuariosPage() {
         />
       )}
 
-      <Dialog open={!!remover} onOpenChange={(aberto) => !aberto && !removerUsuario.isPending && setRemover(null)}>
+      {editando && (
+        <EditarUsuarioDialog
+          usuario={editando}
+          filhos={filhosDe(editando)}
+          onClose={() => setEditando(null)}
+          onSalvo={(c) => {
+            setEditando(null);
+            if (c) setCredenciais(c);
+          }}
+        />
+      )}
+
+      <Dialog
+        open={!!remover}
+        onOpenChange={(aberto) => !aberto && !removerUsuario.isPending && setRemover(null)}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Remover cadastro</DialogTitle>
             <DialogDescription>
-              A conta de <strong>{remover?.name}</strong> será apagada e a pessoa não conseguirá mais
-              entrar. Essa ação não pode ser desfeita.
+              A conta de <strong>{remover?.name}</strong> será apagada e a pessoa não conseguirá
+              mais entrar. Essa ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
           {remover && filhosDe(remover).length > 0 && (
@@ -183,7 +230,11 @@ function UsuariosPage() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRemover(null)} disabled={removerUsuario.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => setRemover(null)}
+              disabled={removerUsuario.isPending}
+            >
               Cancelar
             </Button>
             <Button
@@ -197,7 +248,9 @@ function UsuariosPage() {
         </DialogContent>
       </Dialog>
 
-      {credenciais && <CredenciaisDialog dados={credenciais} onClose={() => setCredenciais(null)} />}
+      {credenciais && (
+        <CredenciaisDialog dados={credenciais} onClose={() => setCredenciais(null)} />
+      )}
     </AdminShell>
   );
 }
@@ -263,12 +316,14 @@ function NovoUsuarioDialog({
       // Filhos: gravados pela administração direto no banco (o RLS permite ao admin)
       const falhas: string[] = [];
       for (const f of filhosParaSalvar) {
-        const { error } = await getSupabase().from("alunos").insert({
-          name: f.nome.trim(),
-          cpf: f.cpf.replace(/\D/g, ""),
-          turma_id: f.turmaId,
-          responsavel_id: conta.userId,
-        });
+        const { error } = await getSupabase()
+          .from("alunos")
+          .insert({
+            name: f.nome.trim(),
+            cpf: f.cpf.replace(/\D/g, ""),
+            turma_id: f.turmaId,
+            responsavel_id: conta.userId,
+          });
         if (error) falhas.push(error.code === "23505" ? `${f.nome} (CPF já cadastrado)` : f.nome);
       }
       if (filhosParaSalvar.length > 0) {
@@ -282,7 +337,9 @@ function NovoUsuarioDialog({
         senha: conta.senha,
         nome: nome.trim(),
         ...(falhas.length > 0
-          ? { aviso: `Conta criada, mas não foi possível cadastrar: ${falhas.join(", ")}. Cadastre em Alunos.` }
+          ? {
+              aviso: `Conta criada, mas não foi possível cadastrar: ${falhas.join(", ")}. Cadastre em Alunos.`,
+            }
           : {}),
       });
     } catch (e) {
@@ -301,7 +358,9 @@ function NovoUsuarioDialog({
           <>
             <DialogHeader>
               <DialogTitle>Novo usuário</DialogTitle>
-              <DialogDescription>O login será o CPF e a senha, o primeiro nome + CPF.</DialogDescription>
+              <DialogDescription>
+                O login será o CPF e a senha, o primeiro nome + CPF.
+              </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-2">
               <div className="grid gap-2">
@@ -411,11 +470,267 @@ function NovoUsuarioDialog({
                 Voltar
               </Button>
               <Button onClick={() => void criar(filhosPreenchidos)} disabled={salvando}>
-                {salvando ? "Criando..." : filhosPreenchidos.length > 0 ? "Criar conta e filhos" : "Criar sem filhos"}
+                {salvando
+                  ? "Criando..."
+                  : filhosPreenchidos.length > 0
+                    ? "Criar conta e filhos"
+                    : "Criar sem filhos"}
               </Button>
             </DialogFooter>
           </>
         )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ── Editar usuário: corrigir nome/CPF e os filhos ─────────────── */
+
+function EditarUsuarioDialog({
+  usuario,
+  filhos: filhosAtuais,
+  onClose,
+  onSalvo,
+}: {
+  usuario: Usuario;
+  filhos: { id: string; name: string; cpf: string; turmaId: string }[];
+  onClose: () => void;
+  onSalvo: (c?: Credenciais & { nome: string; aviso?: string }) => void;
+}) {
+  const qc = useQueryClient();
+  const editarUsuario = useEditarUsuario();
+  const { data: turmas = [] } = useTurmas();
+  const ehResponsavel = usuario.role === "RESPONSAVEL";
+  const temCpf = !!usuario.cpf;
+
+  const [nome, setNome] = useState(usuario.name);
+  const [cpf, setCpf] = useState(usuario.cpf ? formatCpf(usuario.cpf) : "");
+  const [filhos, setFilhos] = useState<FilhoForm[]>(() =>
+    filhosAtuais.map((f) => ({
+      id: f.id,
+      nome: f.name,
+      cpf: formatCpf(f.cpf),
+      turmaId: f.turmaId,
+    })),
+  );
+  const [salvando, setSalvando] = useState(false);
+
+  const atualizarFilho = (i: number, campo: "nome" | "cpf" | "turmaId", valor: string) =>
+    setFilhos((fs) => fs.map((f, j) => (j === i ? { ...f, [campo]: valor } : f)));
+
+  // Filho já cadastrado: marca/desmarca para remover ao salvar. Filho novo: some da lista.
+  const alternarRemocao = (i: number) =>
+    setFilhos((fs) =>
+      fs[i]?.id
+        ? fs.map((f, j) => (j === i ? { ...f, removido: !f.removido } : f))
+        : fs.filter((_, j) => j !== i),
+    );
+
+  const mudou = (f: FilhoForm) => {
+    const o = filhosAtuais.find((x) => x.id === f.id);
+    return (
+      !!o &&
+      (o.name !== f.nome.trim() || o.cpf !== f.cpf.replace(/\D/g, "") || o.turmaId !== f.turmaId)
+    );
+  };
+
+  async function salvar() {
+    const nomeLimpo = nome.trim().replace(/\s+/g, " ");
+    if (nomeLimpo.split(" ").length < 2) return void toast.error("Informe o nome completo.");
+    if (temCpf && !isCpfValido(cpf)) return void toast.error("CPF inválido. Confira os números.");
+
+    const ativos = filhos.filter(
+      (f) => !f.removido && (f.id || f.nome.trim() || f.cpf.trim() || f.turmaId),
+    );
+    for (const f of ativos) {
+      if (!f.nome.trim() || !f.turmaId)
+        return void toast.error("Preencha nome e turma de cada filho.");
+      if (!isCpfValido(f.cpf)) return void toast.error(`CPF inválido para ${f.nome || "o filho"}.`);
+    }
+
+    setSalvando(true);
+    try {
+      // 1) Conta do usuário (só se algo mudou)
+      let novas: Partial<Credenciais> = {};
+      const cpfLimpo = cpf.replace(/\D/g, "");
+      if (nomeLimpo !== usuario.name || (temCpf && cpfLimpo !== usuario.cpf)) {
+        novas = await editarUsuario.mutateAsync({
+          userId: usuario.id,
+          nome: nomeLimpo,
+          ...(temCpf ? { cpf: cpfLimpo } : {}),
+        });
+      }
+
+      // 2) Filhos: remover, corrigir e adicionar (a administração grava direto; o RLS permite)
+      const supabase = getSupabase();
+      const falhas: string[] = [];
+      const anotar = (nomeFilho: string, error: { code?: string } | null) => {
+        if (error)
+          falhas.push(error.code === "23505" ? `${nomeFilho} (CPF já cadastrado)` : nomeFilho);
+      };
+      for (const f of filhos.filter((x) => x.id && x.removido)) {
+        anotar(f.nome, (await supabase.from("alunos").delete().eq("id", f.id!)).error);
+      }
+      for (const f of ativos.filter((x) => x.id && mudou(x))) {
+        const { error } = await supabase
+          .from("alunos")
+          .update({ name: f.nome.trim(), cpf: f.cpf.replace(/\D/g, ""), turma_id: f.turmaId })
+          .eq("id", f.id!);
+        anotar(f.nome, error);
+      }
+      for (const f of ativos.filter((x) => !x.id)) {
+        const { error } = await supabase.from("alunos").insert({
+          name: f.nome.trim(),
+          cpf: f.cpf.replace(/\D/g, ""),
+          turma_id: f.turmaId,
+          responsavel_id: usuario.id,
+        });
+        anotar(f.nome, error);
+      }
+      for (const key of ["alunos", "turmas", "responsaveis"])
+        void qc.invalidateQueries({ queryKey: [key] });
+
+      const aviso =
+        falhas.length > 0 ? `Não foi possível salvar: ${falhas.join(", ")}.` : undefined;
+      if (novas.login && novas.senha) {
+        onSalvo({
+          login: novas.login,
+          senha: novas.senha,
+          nome: nomeLimpo,
+          aviso: `Com a correção, o login/senha mudaram: entregue os novos dados.${aviso ? " " + aviso : ""}`,
+        });
+      } else {
+        if (aviso) toast.error(aviso);
+        else toast.success("Cadastro atualizado.");
+        onSalvo();
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : dbErrorMessage(e));
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(aberto) => !aberto && !salvando && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar cadastro</DialogTitle>
+          <DialogDescription>
+            {temCpf
+              ? "Corrigir o CPF muda o login. Corrigir o primeiro nome ou o CPF muda a senha padrão."
+              : "Esta conta não usa CPF: só o nome pode ser corrigido."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-2">
+          <div className="grid gap-2">
+            <Label htmlFor="e-nome">Nome completo</Label>
+            <Input id="e-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+          </div>
+          {temCpf && (
+            <div className="grid gap-2">
+              <Label htmlFor="e-cpf">CPF</Label>
+              <Input
+                id="e-cpf"
+                inputMode="numeric"
+                placeholder="000.000.000-00"
+                maxLength={14}
+                value={cpf}
+                onChange={(e) => setCpf(formatCpf(e.target.value))}
+              />
+            </div>
+          )}
+
+          {ehResponsavel && (
+            <div className="grid gap-3">
+              <span className="text-sm font-medium text-foreground">Filhos</span>
+              {filhos.length === 0 && (
+                <p className="text-xs text-muted-foreground">Nenhum filho cadastrado.</p>
+              )}
+              {filhos.map((f, i) => (
+                <div
+                  key={f.id ?? `novo-${i}`}
+                  className={`grid gap-2 rounded-md border p-3 ${f.removido ? "opacity-60" : ""}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {f.removido
+                        ? "Será removido ao salvar"
+                        : f.id
+                          ? `Filho ${i + 1}`
+                          : "Novo filho"}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground hover:text-destructive"
+                      aria-label={f.removido ? `Manter ${f.nome}` : `Remover ${f.nome || "filho"}`}
+                      onClick={() => alternarRemocao(i)}
+                    >
+                      {f.removido ? (
+                        <Undo2 className="size-3.5" />
+                      ) : (
+                        <Trash2 className="size-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                  {f.removido ? (
+                    <p className="text-sm line-through">{f.nome}</p>
+                  ) : (
+                    <>
+                      <Input
+                        placeholder="Nome do aluno"
+                        aria-label={`Nome do filho ${i + 1}`}
+                        value={f.nome}
+                        onChange={(e) => atualizarFilho(i, "nome", e.target.value)}
+                      />
+                      <Input
+                        placeholder="CPF do aluno"
+                        aria-label={`CPF do filho ${i + 1}`}
+                        inputMode="numeric"
+                        maxLength={14}
+                        value={f.cpf}
+                        onChange={(e) => atualizarFilho(i, "cpf", formatCpf(e.target.value))}
+                      />
+                      <select
+                        aria-label={`Turma do filho ${i + 1}`}
+                        value={f.turmaId}
+                        onChange={(e) => atualizarFilho(i, "turmaId", e.target.value)}
+                        className={selectClass}
+                      >
+                        <option value="" disabled>
+                          Selecione a turma...
+                        </option>
+                        {turmas.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {buildTurmaLabelFull(t)}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className="justify-self-start"
+                onClick={() => setFilhos((fs) => [...fs, filhoVazio()])}
+              >
+                <Plus className="size-3.5" />
+                Adicionar filho
+              </Button>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button onClick={() => void salvar()} disabled={salvando}>
+            {salvando ? "Salvando..." : "Salvar"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -450,8 +765,10 @@ function CredenciaisDialog({
       toast.error("Libere as janelas pop-up para imprimir.");
       return;
     }
-    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
-    janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Acesso</title>
+    const esc = (s: string) =>
+      s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+    janela.document
+      .write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Acesso</title>
       <style>body{font-family:system-ui,sans-serif;padding:32px;color:#111}h1{font-size:20px;margin:0 0 4px}
       p{margin:4px 0}.box{border:1px dashed #999;border-radius:8px;padding:16px;margin-top:16px}
       strong{font-family:ui-monospace,monospace;font-size:18px}</style></head><body>
