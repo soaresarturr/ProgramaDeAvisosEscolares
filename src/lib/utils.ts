@@ -31,7 +31,7 @@ export function erroNomeCompleto(value: string): string | null {
   if (TRACO.test(value)) return 'O nome não pode ter "-".';
   const partes = value.trim().split(/\s+/).filter(Boolean);
   if (partes.length < 2 || partes.some((p) => p.length < 2)) {
-    return "Informe o nome completo: nome e sobrenome.";
+    return "Informe o nome completo do responsável.";
   }
   return null;
 }

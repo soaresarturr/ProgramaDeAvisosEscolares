@@ -44,7 +44,7 @@ function erroNomeCompleto(nome: string): string | null {
   if (/[-‐‑‒–—―]/.test(nome)) return 'O nome não pode ter "-".';
   const partes = nome.split(" ").filter(Boolean);
   if (partes.length < 2 || partes.some((p) => p.length < 2)) {
-    return "Informe o nome completo: nome e sobrenome.";
+    return "Informe o nome completo do responsável.";
   }
   return null;
 }
