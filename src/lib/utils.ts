@@ -14,6 +14,28 @@ export function formatCpf(value: string) {
     .replace(/^(\d{3})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3-$4");
 }
 
+/** Hífen e traços parecidos (–, —): não são aceitos no nome. */
+const TRACO = /[-‐‑‒–—―]/;
+
+/** Tira os traços enquanto a pessoa digita no campo de nome. */
+export function semTracos(value: string) {
+  return value.replace(new RegExp(TRACO.source, "g"), "");
+}
+
+/**
+ * Regra do "Nome completo": nome + sobrenome (pelo menos 2 palavras com 2 letras ou mais)
+ * e sem "-". Devolve a mensagem de erro, ou null se estiver certo.
+ * (A Edge Function gerenciar-usuarios confere a mesma regra.)
+ */
+export function erroNomeCompleto(value: string): string | null {
+  if (TRACO.test(value)) return 'O nome não pode ter "-".';
+  const partes = value.trim().split(/\s+/).filter(Boolean);
+  if (partes.length < 2 || partes.some((p) => p.length < 2)) {
+    return "Informe o nome completo: nome e sobrenome.";
+  }
+  return null;
+}
+
 /** Confere os dígitos verificadores do CPF (aceita com ou sem pontuação). */
 export function isCpfValido(value: string) {
   const cpf = value.replace(/\D/g, "");

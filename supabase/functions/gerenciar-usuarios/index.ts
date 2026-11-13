@@ -39,6 +39,16 @@ function cpfValido(cpf: string) {
   return digito(cpf.slice(0, 9)) === Number(cpf[9]) && digito(cpf.slice(0, 10)) === Number(cpf[10]);
 }
 
+// "Nome completo": nome + sobrenome (2+ palavras com 2+ letras) e sem "-". Mesma regra do site.
+function erroNomeCompleto(nome: string): string | null {
+  if (/[-‐‑‒–—―]/.test(nome)) return 'O nome não pode ter "-".';
+  const partes = nome.split(" ").filter(Boolean);
+  if (partes.length < 2 || partes.some((p) => p.length < 2)) {
+    return "Informe o nome completo: nome e sobrenome.";
+  }
+  return null;
+}
+
 function senhaPadrao(nome: string, cpf: string) {
   const primeiro = (nome.trim().split(/\s+/)[0] ?? "")
     .normalize("NFD")
@@ -112,7 +122,8 @@ Deno.serve(async (req) => {
     const cpf = String(body.cpf ?? "").replace(/\D/g, "");
     const papel = String(body.papel ?? "RESPONSAVEL") as Papel;
 
-    if (nome.length < 2) return responder({ erro: "Informe o nome completo." }, 400);
+    const erroNome = erroNomeCompleto(nome);
+    if (erroNome) return responder({ erro: erroNome }, 400);
     if (!cpfValido(cpf)) return responder({ erro: "CPF inválido. Confira os números." }, 400);
     if (!PODE_CRIAR[papelChamador]?.includes(papel)) {
       return responder({ erro: "Você não tem permissão para criar esse tipo de usuário." }, 403);
@@ -168,7 +179,8 @@ Deno.serve(async (req) => {
       .replace(/\s+/g, " ");
     if (userId === auth.user.id)
       return responder({ erro: "Você não pode editar a própria conta por aqui." }, 400);
-    if (nome.length < 2) return responder({ erro: "Informe o nome completo." }, 400);
+    const erroNome = erroNomeCompleto(nome);
+    if (erroNome) return responder({ erro: erroNome }, 400);
 
     const { data: alvo } = await admin
       .from("profiles")

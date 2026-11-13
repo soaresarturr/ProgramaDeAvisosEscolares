@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/auth";
-import { formatCpf, isCpfValido } from "@/lib/utils";
+import { erroNomeCompleto, formatCpf, isCpfValido, semTracos } from "@/lib/utils";
 import { getSupabase } from "@/lib/supabase";
 import {
   type Credenciais,
@@ -278,7 +278,8 @@ function NovoUsuarioDialog({
   const [salvando, setSalvando] = useState(false);
 
   const validarPasso1 = () => {
-    if (nome.trim().split(/\s+/).length < 2) return "Informe o nome completo.";
+    const erroNome = erroNomeCompleto(nome);
+    if (erroNome) return erroNome;
     if (!isCpfValido(cpf)) return "CPF inválido. Confira os números.";
     return null;
   };
@@ -365,7 +366,12 @@ function NovoUsuarioDialog({
             <div className="grid gap-4 py-2">
               <div className="grid gap-2">
                 <Label htmlFor="u-nome">Nome completo</Label>
-                <Input id="u-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+                <Input
+                  id="u-nome"
+                  placeholder="Nome e sobrenome"
+                  value={nome}
+                  onChange={(e) => setNome(semTracos(e.target.value))}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="u-cpf">CPF</Label>
@@ -536,7 +542,8 @@ function EditarUsuarioDialog({
 
   async function salvar() {
     const nomeLimpo = nome.trim().replace(/\s+/g, " ");
-    if (nomeLimpo.split(" ").length < 2) return void toast.error("Informe o nome completo.");
+    const erroNome = erroNomeCompleto(nomeLimpo);
+    if (erroNome) return void toast.error(erroNome);
     if (temCpf && !isCpfValido(cpf)) return void toast.error("CPF inválido. Confira os números.");
 
     const ativos = filhos.filter(
@@ -625,7 +632,12 @@ function EditarUsuarioDialog({
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">
             <Label htmlFor="e-nome">Nome completo</Label>
-            <Input id="e-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
+            <Input
+              id="e-nome"
+              placeholder="Nome e sobrenome"
+              value={nome}
+              onChange={(e) => setNome(semTracos(e.target.value))}
+            />
           </div>
           {temCpf && (
             <div className="grid gap-2">
